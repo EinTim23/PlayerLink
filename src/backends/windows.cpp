@@ -6,6 +6,7 @@
 #include <chrono>
 
 #include "../backend.hpp"
+#include "../utils.hpp"
 
 using namespace winrt;
 using namespace Windows::Media::Control;
@@ -45,17 +46,25 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         std::vector<uint8_t> buffer(size);
         reader.ReadBytes(buffer);
         thumbnailData = std::string(buffer.begin(), buffer.end());
-		stream.Close();
+        stream.Close();
     }
 
     std::string artist = toStdString(mediaProperties.Artist());
+    std::string albumName = toStdString(mediaProperties.AlbumTitle());
     if (artist == "")
         artist = toStdString(mediaProperties.AlbumArtist());  // Needed for some apps
 
+    if (artist.find("\x14") != std::string::npos) {
+        albumName = artist.substr(artist.find("\x14") + 1);
+        artist = artist.substr(0, artist.find("\x14"));
+        utils::trim(artist);
+        utils::trim(albumName);
+    }
+
     return std::make_shared<MediaInfo>(
         playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused,
-        toStdString(mediaProperties.Title()), artist, toStdString(mediaProperties.AlbumTitle()),
-        toStdString(currentSession.SourceAppUserModelId()), thumbnailData, endTime, elapsedTime);
+        toStdString(mediaProperties.Title()), artist, albumName, toStdString(currentSession.SourceAppUserModelId()),
+        thumbnailData, endTime, elapsedTime);
 }
 
 #endif

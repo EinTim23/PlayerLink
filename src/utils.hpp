@@ -13,6 +13,20 @@
 #define CONFIG_FILENAME "known.json"
 
 namespace utils {
+    inline std::string ltrim(std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
+        return s;
+    }
+
+    inline std::string rtrim(std::string& s) {
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
+        return s;
+    }
+    inline std::string trim(std::string& s) {
+        ltrim(s);
+        rtrim(s);
+        return s;
+    }
     inline std::string urlEncode(std::string str) {
         std::string new_str = "";
         char c;
@@ -39,10 +53,12 @@ namespace utils {
         }
         return new_str;
     }
+
     inline size_t curlWriteCallback(char* contents, size_t size, size_t nmemb, void* userp) {
         ((std::string*)userp)->append((char*)contents, size * nmemb);
         return size * nmemb;
     }
+
     inline std::string getRequest(std::string url) {
         CURL* curl;
         CURLcode res;
@@ -52,6 +68,7 @@ namespace utils {
         if (curl) {
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
             res = curl_easy_perform(curl);
             curl_easy_cleanup(curl);
@@ -59,6 +76,7 @@ namespace utils {
         curl_global_cleanup();
         return buf;
     }
+
     inline std::string getArtworkURL(std::string query) {
         std::string response =
             getRequest("https://itunes.apple.com/search?media=music&entity=song&term=" + urlEncode(query));
@@ -69,6 +87,7 @@ namespace utils {
         }
         return "";
     }
+
     inline nlohmann::json getApp(std::string processName) {
         std::ifstream i("known.json");
         std::stringstream s;
@@ -94,21 +113,21 @@ namespace utils {
         if (!std::filesystem::exists(CONFIG_FILENAME))
             return DEFAULT_CLIENT_ID;
         auto app = getApp(processName);
-        return app["client_id"] == "" ? DEFAULT_CLIENT_ID : app["client_id"];
+        return app.contains("client_id") ? app["client_id"].get<std::string>() : DEFAULT_CLIENT_ID;
     }
 
     inline std::string getAppName(std::string processName) {
         if (!std::filesystem::exists(CONFIG_FILENAME))
             return DEFAULT_APP_NAME;
         auto app = getApp(processName);
-        return app["name"] == "" ? DEFAULT_APP_NAME : app["name"];
+        return app.contains("name") ? app["name"].get<std::string>() : DEFAULT_APP_NAME;
     }
 
     inline std::string getSearchEndpoint(std::string processName) {
         if (!std::filesystem::exists(CONFIG_FILENAME))
             return "";
         auto app = getApp(processName);
-        return app["search_endpoint"] == "" ? "" : app["search_endpoint"];
+        return app.contains("search_endpoint") ? app["search_endpoint"].get<std::string>() : "";
     }
 }  // namespace utils
 

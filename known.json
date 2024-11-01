@@ -6,7 +6,23 @@
                 "AppleMusic.exe"
             ],
             "search_endpoint": "https://music.apple.com/search?term=",
-            "client_id": "1301881165984301106"
+            "client_id": "1245257240890310686"
+        },
+        {
+            "name": "Spotify",
+            "process_names": [
+                "Spotify.exe"
+            ],
+            "search_endpoint": "https://open.spotify.com/search/",
+            "client_id": "1245257414715113573"
+        },
+        {
+            "name": "Tidal",
+            "process_names": [
+                "TIDAL.exe"
+            ],
+            "search_endpoint": "https://listen.tidal.com/search?q=",
+            "client_id": "1245257493966225488"
         }
     ]
 }

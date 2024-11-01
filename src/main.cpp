@@ -44,8 +44,8 @@ int main() {
             continue;
         }
 
-        std::string currentlyPlayingSong =
-            mediaInformation->songTitle + mediaInformation->songArtist + mediaInformation->songAlbum;
+        std::string currentlyPlayingSong = mediaInformation->songTitle + mediaInformation->songArtist +
+                                           mediaInformation->songAlbum + std::to_string(mediaInformation->songDuration);
 
         if (currentlyPlayingSong == lastPlayingSong)
             continue;
@@ -53,42 +53,48 @@ int main() {
         lastPlayingSong = currentlyPlayingSong;
 
         std::string currentMediaSource = mediaInformation->playbackSource;
-        std::cout << currentMediaSource << std::endl;
-        if (currentMediaSource != lastMediaSource)
-            Discord_Shutdown();  // reinitialize with new client id
+
+        if (currentMediaSource != lastMediaSource) {
+            lastMediaSource = currentMediaSource;
+            Discord_Shutdown();
+        }  // reinitialize with new client id
 
         std::string serviceName = utils::getAppName(lastMediaSource);
+
+        std::string activityState = "by " + mediaInformation->songArtist;
         DiscordRichPresence activity{};
         activity.type = ActivityType::LISTENING;
         activity.details = mediaInformation->songTitle.c_str();
-        activity.state = std::string("by " + mediaInformation->songArtist).c_str();
+        activity.state = activityState.c_str();
         activity.smallImageText = serviceName.c_str();
         std::string artworkURL = utils::getArtworkURL(mediaInformation->songTitle + " " + mediaInformation->songArtist +
                                                       " " + mediaInformation->songAlbum);
 
-        activity.smallImageKey = "icon";
+        activity.smallImageKey = "appicon";
         if (artworkURL == "") {
             activity.smallImageKey = "";
-            activity.largeImageText = "icon";
+            activity.largeImageKey = "appicon";
         } else {
-            activity.largeImageText = mediaInformation->songAlbum.c_str();
             activity.largeImageKey = artworkURL.c_str();
         }
+        activity.largeImageText = mediaInformation->songAlbum.c_str();
 
         if (mediaInformation->songDuration != 0) {
             int64_t remainingTime = mediaInformation->songDuration - mediaInformation->songElapsedTime;
-            activity.startTimestamp = time(nullptr) - mediaInformation->songElapsedTime;
-            activity.endTimestamp = time(nullptr) + remainingTime;
+            activity.startTimestamp = time(nullptr) - (mediaInformation->songElapsedTime / 1000);
+            activity.endTimestamp = time(nullptr) + (remainingTime / 1000);
         }
         std::string endpointURL = utils::getSearchEndpoint(lastMediaSource);
 
+        std::string searchQuery = mediaInformation->songTitle + " " + mediaInformation->songArtist;
+        std::string buttonName = "Search on " + serviceName;
+        std::string buttonText = endpointURL + utils::urlEncode(searchQuery);
+
         if (endpointURL != "") {
-            activity.button1name = std::string("Search on " + serviceName).c_str();
-            std::string searchQuery = mediaInformation->songTitle + " " + mediaInformation->songArtist;
-            activity.button1link = std::string(endpointURL + utils::urlEncode(searchQuery)).c_str();
+            activity.button1name = buttonName.c_str();
+            activity.button1link = buttonText.c_str();
         }
 
-        lastMediaSource = currentMediaSource;
         Discord_UpdatePresence(&activity);
     }
 }
