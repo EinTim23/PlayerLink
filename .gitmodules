@@ -1,0 +1,12 @@
+[submodule "vendor/discord-rpc"]
+	path = vendor/discord-rpc
+	url = https://github.com/EinTim23/discord-rpc.git
+[submodule "vendor/nlohmann-json"]
+	path = vendor/nlohmann-json
+	url = https://github.com/nlohmann/json.git
+[submodule "vendor/curl"]
+	path = vendor/curl
+	url = https://github.com/curl/curl.git
+[submodule "vendor/mbedtls"]
+	path = vendor/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
