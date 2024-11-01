@@ -39,6 +39,7 @@ int main() {
         }
 
         if (mediaInformation->paused) {
+            lastPlayingSong = "";
             Discord_ClearPresence();  // TODO: allow user to keep presence when paused(because for
                                       // some reason some people want this)
             continue;
