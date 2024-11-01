@@ -1,0 +1,12 @@
+{
+    "apps": [
+        {
+            "name": "Apple Music",
+            "process_names": [
+                "AppleMusic.exe"
+            ],
+            "search_endpoint": "https://music.apple.com/search?term=",
+            "client_id": "1301881165984301106"
+        }
+    ]
+}
