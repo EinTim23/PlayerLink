@@ -54,34 +54,41 @@ int main() {
 
         std::string currentMediaSource = mediaInformation->playbackSource;
         std::cout << currentMediaSource << std::endl;
-        if (currentMediaSource != lastMediaSource) 
-            Discord_Shutdown(); //reinitialize with new client id
-        
-		std::string serviceName = utils::getAppName(lastMediaSource);
-		DiscordRichPresence activity{};
+        if (currentMediaSource != lastMediaSource)
+            Discord_Shutdown();  // reinitialize with new client id
+
+        std::string serviceName = utils::getAppName(lastMediaSource);
+        DiscordRichPresence activity{};
         activity.type = ActivityType::LISTENING;
-		activity.details = mediaInformation->songTitle.c_str();
-		activity.state = std::string("by " + mediaInformation->songArtist).c_str();
-		activity.smallImageText = serviceName.c_str();
-		activity.smallImageKey = "icon";
+        activity.details = mediaInformation->songTitle.c_str();
+        activity.state = std::string("by " + mediaInformation->songArtist).c_str();
+        activity.smallImageText = serviceName.c_str();
+        std::string artworkURL = utils::getArtworkURL(mediaInformation->songTitle + " " + mediaInformation->songArtist +
+                                                      " " + mediaInformation->songAlbum);
 
-		activity.largeImageText = mediaInformation->songAlbum.c_str();
-		activity.largeImageKey = "";
+        activity.smallImageKey = "icon";
+        if (artworkURL == "") {
+            activity.smallImageKey = "";
+            activity.largeImageText = "icon";
+        } else {
+            activity.largeImageText = mediaInformation->songAlbum.c_str();
+            activity.largeImageKey = artworkURL.c_str();
+        }
 
-		if(mediaInformation->songDuration != 0) {
-			int64_t remainingTime = mediaInformation->songDuration - mediaInformation->songElapsedTime;
-			activity.startTimestamp = time(nullptr) - mediaInformation->songElapsedTime;
-			activity.endTimestamp = time(nullptr) + remainingTime;
-		}
-		std::string endpointURL = utils::getSearchEndpoint(lastMediaSource);
+        if (mediaInformation->songDuration != 0) {
+            int64_t remainingTime = mediaInformation->songDuration - mediaInformation->songElapsedTime;
+            activity.startTimestamp = time(nullptr) - mediaInformation->songElapsedTime;
+            activity.endTimestamp = time(nullptr) + remainingTime;
+        }
+        std::string endpointURL = utils::getSearchEndpoint(lastMediaSource);
 
-		if(endpointURL != "") {
-			activity.button1name = std::string("Search on " + serviceName).c_str();
-			std::string searchQuery = mediaInformation->songTitle + " " + mediaInformation->songArtist;
-			activity.button1link = std::string(endpointURL + utils::urlEncode(searchQuery)).c_str();
-		}		
+        if (endpointURL != "") {
+            activity.button1name = std::string("Search on " + serviceName).c_str();
+            std::string searchQuery = mediaInformation->songTitle + " " + mediaInformation->songArtist;
+            activity.button1link = std::string(endpointURL + utils::urlEncode(searchQuery)).c_str();
+        }
 
         lastMediaSource = currentMediaSource;
-		Discord_UpdatePresence(&activity);
+        Discord_UpdatePresence(&activity);
     }
 }
