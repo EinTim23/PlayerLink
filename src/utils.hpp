@@ -1,6 +1,8 @@
 #ifndef _UTILS_
 #define _UTILS_
 #include <curl/include/curl/curl.h>
+#include <wx/mstream.h>
+#include <wx/wx.h>
 
 #include <filesystem>
 #include <fstream>
@@ -13,6 +15,17 @@
 #define CONFIG_FILENAME "known.json"
 
 namespace utils {
+    inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size) {
+        wxMemoryInputStream stream(data, size);
+        wxImage img(stream, wxBITMAP_TYPE_PNG); 
+        if (img.IsOk()) {
+            wxBitmap bmp(img);
+            wxIcon icon;
+            icon.CopyFromBitmap(bmp);
+            return icon;
+        }
+        return wxNullIcon;
+    }
     inline std::string ltrim(std::string& s) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
         return s;

@@ -1,4 +1,7 @@
 #include <discord-rpc/discord_rpc.h>
+#include <wx/image.h>
+#include <wx/mstream.h>
+#include <wx/taskbar.h>
 #include <wx/wx.h>
 
 #include <chrono>
@@ -7,6 +10,7 @@
 #include <thread>
 
 #include "backend.hpp"
+#include "rsrc.hpp"
 #include "utils.hpp"
 
 std::string lastPlayingSong = "";
@@ -98,14 +102,48 @@ void handleMediaTasks() {
         Discord_UpdatePresence(&activity);
     }
 }
+class MyTaskBarIcon : public wxTaskBarIcon {
+public:
+    MyTaskBarIcon(wxFrame* mainFrame) : m_mainFrame(mainFrame) {}
+
+    void OnMenuOpen(wxCommandEvent& evt) { m_mainFrame->Show(true); }
+
+    void OnMenuExit(wxCommandEvent& evt) { m_mainFrame->Close(true); }
+
+protected:
+    virtual wxMenu* CreatePopupMenu() override {
+        wxMenu* menu = new wxMenu;
+        menu->Append(10001, "Open");
+        menu->AppendSeparator();
+        menu->Append(10002, "Quit");
+        Bind(wxEVT_MENU, &MyTaskBarIcon::OnMenuOpen, this, 10001);
+        Bind(wxEVT_MENU, &MyTaskBarIcon::OnMenuExit, this, 10002);
+        return menu;
+    }
+
+private:
+    wxFrame* m_mainFrame;
+};
 class MyApp : public wxApp {
 public:
     virtual bool OnInit() override {
+        wxInitAllImageHandlers();
         wxFrame* frame = new wxFrame(nullptr, wxID_ANY, "Hello wxWidgets", wxDefaultPosition, wxSize(400, 300));
+        trayIcon = new MyTaskBarIcon(frame);
+        frame->Bind(wxEVT_CLOSE_WINDOW, [=](wxCloseEvent& event) {
+            trayIcon->RemoveIcon();
+            trayIcon->Destroy();
+            event.Skip();
+        });
+        wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
+        trayIcon->SetIcon(icon, "My App");
         wxStaticText* text = new wxStaticText(frame, wxID_ANY, "Hello World", wxPoint(150, 130));
         frame->Show(true);
         return true;
     }
+
+private:
+    MyTaskBarIcon* trayIcon;
 };
 
 wxIMPLEMENT_APP_NO_MAIN(MyApp);
