@@ -43,7 +43,7 @@ namespace utils {
             else if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
                 new_str += c;
             else {
-                sprintf_s(bufHex, sizeof(bufHex), "%X", c);
+                snprintf(bufHex, sizeof(bufHex), "%X", c);
                 if (ic < 16)
                     new_str += "%0";
                 else

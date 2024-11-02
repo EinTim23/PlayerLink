@@ -10,3 +10,6 @@
 [submodule "vendor/mbedtls"]
 	path = vendor/mbedtls
 	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "vendor/wxWidgets"]
+	path = vendor/wxWidgets
+	url = https://github.com/wxWidgets/wxWidgets.git
