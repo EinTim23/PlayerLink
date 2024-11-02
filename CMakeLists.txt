@@ -1,5 +1,9 @@
 cmake_minimum_required (VERSION 3.8)
-project ("globalRPC")
+if(APPLE)
+    project ("globalRPC" LANGUAGES C CXX OBJCXX)
+else()
+    project ("globalRPC" LANGUAGES C CXX)
+endif()
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable (rpc ${SOURCES})
 set_property(TARGET rpc PROPERTY CXX_STANDARD 20)
@@ -11,6 +15,7 @@ endif()
 file(GLOB wx_setup_dir
     "${CMAKE_BINARY_DIR}/vendor/wxWidgets/lib/*/mswu"
     "${CMAKE_BINARY_DIR}/vendor/wxWidgets/lib/*/gtk3u"
+    "${CMAKE_BINARY_DIR}/vendor/wxWidgets/lib/wx/include/*"
 )
 if(wx_setup_dir)
     message(STATUS "wxWidgets setup.h directory found: ${wx_setup_dir}")
