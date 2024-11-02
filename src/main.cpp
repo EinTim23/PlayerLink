@@ -1,4 +1,5 @@
 #include <discord-rpc/discord_rpc.h>
+#include <wx/wx.h>
 
 #include <chrono>
 #include <fstream>
@@ -7,6 +8,7 @@
 
 #include "backend.hpp"
 #include "utils.hpp"
+
 std::string lastPlayingSong = "";
 std::string lastMediaSource = "";
 
@@ -26,10 +28,7 @@ void handleRPCTasks() {
     handleRPCTasks();  // this could theoretically cause a stack overflow if discord is restarted often enough
 }
 
-int main() {
-    std::thread rpcThread(handleRPCTasks);
-    rpcThread.detach();
-
+void handleMediaTasks() {
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto mediaInformation = backend::getMediaInformation();
@@ -98,4 +97,23 @@ int main() {
 
         Discord_UpdatePresence(&activity);
     }
+}
+class MyApp : public wxApp {
+public:
+    virtual bool OnInit() override {
+        wxFrame* frame = new wxFrame(nullptr, wxID_ANY, "Hello wxWidgets", wxDefaultPosition, wxSize(400, 300));
+        wxStaticText* text = new wxStaticText(frame, wxID_ANY, "Hello World", wxPoint(150, 130));
+        frame->Show(true);
+        return true;
+    }
+};
+
+wxIMPLEMENT_APP_NO_MAIN(MyApp);
+
+int main(int argc, char** argv) {
+    std::thread rpcThread(handleRPCTasks);
+    rpcThread.detach();
+    std::thread mediaThread(handleMediaTasks);
+    mediaThread.detach();
+    return wxEntry(argc, argv);
 }

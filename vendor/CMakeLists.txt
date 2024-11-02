@@ -11,3 +11,8 @@ SET(MBEDTLS_INCLUDE_DIRS ../mbedtls/include)
 file(REMOVE curl/CMake/FindMbedTLS.cmake) #replace curls FindMbedTLS that expects mbedtls to be prebuilt with a dummy
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dummy ${CMAKE_MODULE_PATH})
 add_subdirectory("curl")
+set(wxBUILD_SHARED OFF)
+set(wxBUILD_MONOLITHIC ON)
+set(wxUSE_GUI ON)
+set(wxUSE_WEBVIEW OFF)
+add_subdirectory("wxWidgets")
