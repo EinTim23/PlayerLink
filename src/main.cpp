@@ -1,6 +1,7 @@
 #include <discord-rpc/discord_rpc.h>
 #include <wx/image.h>
 #include <wx/mstream.h>
+#include <wx/statline.h>
 #include <wx/taskbar.h>
 #include <wx/wx.h>
 
@@ -102,51 +103,134 @@ void handleMediaTasks() {
         Discord_UpdatePresence(&activity);
     }
 }
-class MyTaskBarIcon : public wxTaskBarIcon {
+class PlayerLinkIcon : public wxTaskBarIcon {
 public:
-    MyTaskBarIcon(wxFrame* mainFrame) : m_mainFrame(mainFrame) {}
+    PlayerLinkIcon(wxFrame* s) : settingsFrame(s) {}
 
-    void OnMenuOpen(wxCommandEvent& evt) { m_mainFrame->Show(true); }
+    void OnMenuOpen(wxCommandEvent& evt) { settingsFrame->Show(true); }
 
-    void OnMenuExit(wxCommandEvent& evt) { m_mainFrame->Close(true); }
+    void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
 
 protected:
     virtual wxMenu* CreatePopupMenu() override {
         wxMenu* menu = new wxMenu;
-        menu->Append(10001, "Open");
+        menu->Append(10004, _("Not Playing"));  // TODO: make this dynamic
+        menu->Enable(10004, false);
         menu->AppendSeparator();
-        menu->Append(10002, "Quit");
-        Bind(wxEVT_MENU, &MyTaskBarIcon::OnMenuOpen, this, 10001);
-        Bind(wxEVT_MENU, &MyTaskBarIcon::OnMenuExit, this, 10002);
+        menu->Append(10001, _("Settings"));
+        menu->Append(10003, _("About PlayerLink"));
+        menu->AppendSeparator();
+        menu->Append(10002, _("Quit PlayerLink..."));
+        Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuOpen, this, 10001);
+        Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuExit, this, 10002);
         return menu;
     }
 
 private:
-    wxFrame* m_mainFrame;
+    wxFrame* settingsFrame;
 };
-class MyApp : public wxApp {
+
+class PlayerLinkFrame : public wxFrame {
+protected:
+    wxStaticText* settingsText;
+    wxStaticLine* settingsDivider;
+    wxStaticText* enabledAppsText;
+    wxCheckBox* anyOtherCheckbox;
+    wxStaticLine* appsDivider;
+    wxStaticText* startupText;
+    wxCheckBox* autostartCheckbox;
+
+public:
+    PlayerLinkFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
+                    const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(300, 200),
+                    long style = wxDEFAULT_FRAME_STYLE & ~wxRESIZE_BORDER & ~wxMAXIMIZE_BOX)
+        : wxFrame(parent, id, title, pos, size, style) {
+        this->SetSizeHints(wxDefaultSize, wxDefaultSize);
+
+        wxBoxSizer* mainContainer;
+        mainContainer = new wxBoxSizer(wxVERTICAL);
+
+        settingsText = new wxStaticText(this, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
+        settingsText->Wrap(-1);
+        mainContainer->Add(settingsText, 0, wxALIGN_CENTER | wxALL, 5);
+
+        settingsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        mainContainer->Add(settingsDivider, 0, wxEXPAND | wxALL, 5);
+
+        wxBoxSizer* enabledAppsContainer;
+        enabledAppsContainer = new wxBoxSizer(wxHORIZONTAL);
+
+        enabledAppsText = new wxStaticText(this, wxID_ANY, _("Enabled Apps:"), wxDefaultPosition, wxDefaultSize, 0);
+        enabledAppsText->Wrap(-1);
+        enabledAppsContainer->Add(enabledAppsText, 0, wxALL, 5);
+
+        wxBoxSizer* appCheckboxContainer;
+        appCheckboxContainer = new wxBoxSizer(wxVERTICAL);
+
+        auto apps = utils::getAllApps();
+
+        for (auto app : apps) {
+            auto checkbox = new wxCheckBox(this, wxID_ANY, _(app.appName), wxDefaultPosition, wxDefaultSize, 0);
+            appCheckboxContainer->Add(checkbox, 0, wxALL, 5);
+        }
+
+        anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
+        appCheckboxContainer->Add(anyOtherCheckbox, 0, wxALL, 5);
+
+        enabledAppsContainer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
+
+        mainContainer->Add(enabledAppsContainer, 0, 0, 5);
+
+        appsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        mainContainer->Add(appsDivider, 0, wxEXPAND | wxALL, 5);
+
+        wxBoxSizer* settingsContainer;
+        settingsContainer = new wxBoxSizer(wxHORIZONTAL);
+
+        startupText = new wxStaticText(this, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
+        startupText->Wrap(-1);
+        settingsContainer->Add(startupText, 0, wxALL, 5);
+
+        autostartCheckbox = new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
+        settingsContainer->Add(autostartCheckbox, 0, wxALL, 5);
+
+        mainContainer->Add(settingsContainer, 0, wxEXPAND, 5);
+
+        this->SetSizerAndFit(mainContainer);
+
+        wxSize currentSize = this->GetSize();
+        this->SetSize(size.GetWidth(), currentSize.GetHeight());
+        this->Layout();
+
+        this->Centre(wxBOTH);
+    }
+};
+class PlayerLink : public wxApp {
 public:
     virtual bool OnInit() override {
+        if (wxSystemSettings::GetAppearance().IsSystemDark())  // To support the native dark mode on windows 10 and up
+            this->SetAppearance(wxAppBase::Appearance::Dark);
+
         wxInitAllImageHandlers();
-        wxFrame* frame = new wxFrame(nullptr, wxID_ANY, "Hello wxWidgets", wxDefaultPosition, wxSize(400, 300));
-        trayIcon = new MyTaskBarIcon(frame);
+        PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, wxID_ANY, _("PlayerLink"));
+        trayIcon = new PlayerLinkIcon(frame);
         frame->Bind(wxEVT_CLOSE_WINDOW, [=](wxCloseEvent& event) {
-            trayIcon->RemoveIcon();
-            trayIcon->Destroy();
-            event.Skip();
+            if (event.CanVeto()) {
+                frame->Hide();
+                event.Veto();
+            } else
+                this->ExitMainLoop();
         });
         wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
-        trayIcon->SetIcon(icon, "My App");
-        wxStaticText* text = new wxStaticText(frame, wxID_ANY, "Hello World", wxPoint(150, 130));
-        frame->Show(true);
+        trayIcon->SetIcon(icon, _("PlayerLink"));
         return true;
     }
 
 private:
-    MyTaskBarIcon* trayIcon;
+    PlayerLinkIcon* trayIcon;
 };
 
-wxIMPLEMENT_APP_NO_MAIN(MyApp);
+wxIMPLEMENT_APP_NO_MAIN(PlayerLink);
 
 int main(int argc, char** argv) {
     std::thread rpcThread(handleRPCTasks);

@@ -9,15 +9,24 @@
 #include <nlohmann-json/single_include/nlohmann/json.hpp>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #define DEFAULT_CLIENT_ID "1301849203378622545"
 #define DEFAULT_APP_NAME "Music"
-#define CONFIG_FILENAME "known.json"
+#define CONFIG_FILENAME "settings.json"
 
 namespace utils {
+    struct App {
+        bool enabled;
+        std::string appName;
+        std::string clientId;
+        std::string searchEndpoint;
+        std::vector<std::string> processNames;
+    };
+
     inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size) {
         wxMemoryInputStream stream(data, size);
-        wxImage img(stream, wxBITMAP_TYPE_PNG); 
+        wxImage img(stream, wxBITMAP_TYPE_PNG);
         if (img.IsOk()) {
             wxBitmap bmp(img);
             wxIcon icon;
@@ -26,6 +35,7 @@ namespace utils {
         }
         return wxNullIcon;
     }
+
     inline std::string ltrim(std::string& s) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
         return s;
@@ -35,11 +45,13 @@ namespace utils {
         s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
         return s;
     }
+
     inline std::string trim(std::string& s) {
         ltrim(s);
         rtrim(s);
         return s;
     }
+
     inline std::string urlEncode(std::string str) {
         std::string new_str = "";
         char c;
@@ -101,8 +113,12 @@ namespace utils {
         return "";
     }
 
-    inline nlohmann::json getApp(std::string processName) {
-        std::ifstream i("known.json");
+    inline std::vector<App> getAllApps() {
+        std::vector<App> results;
+        if (!std::filesystem::exists(CONFIG_FILENAME))
+            return results;
+
+        std::ifstream i(CONFIG_FILENAME);
         std::stringstream s;
         s << i.rdbuf();
         i.close();
@@ -111,36 +127,49 @@ namespace utils {
             nlohmann::json j = nlohmann::json::parse(s.str());
             auto apps = j["apps"];
             for (auto app : apps) {
+                App a;
+                a.appName = app["name"].get<std::string>();
+                a.clientId = app["client_id"].get<std::string>();
+                a.searchEndpoint = app["search_endpoint"].get<std::string>();
+                a.enabled = app["enabled"].get<bool>();
                 auto processNames = app["process_names"];
-                for (auto process : processNames) {
-                    if (process.get<std::string>() == processName)
-                        return app;
-                }
+                for (auto process : processNames) a.processNames.push_back(process.get<std::string>());
+                results.push_back(a);
             }
         } catch (nlohmann::json::parse_error& ex) {
         }  // TODO: handle parse errors
-        return nlohmann::json();
+        return results;
+    }
+
+    inline App getApp(std::string processName) {
+        auto apps = getAllApps();
+        for (auto app : apps) {
+            for(auto procName : app.processNames) {
+                if(procName == processName)
+                    return app;
+            }
+        }
+        App a;
+        a.clientId = DEFAULT_CLIENT_ID;
+        a.appName = DEFAULT_APP_NAME;
+        a.enabled = true;
+        a.searchEndpoint = "";
+        return a;
     }
 
     inline std::string getClientID(std::string processName) {
-        if (!std::filesystem::exists(CONFIG_FILENAME))
-            return DEFAULT_CLIENT_ID;
         auto app = getApp(processName);
-        return app.contains("client_id") ? app["client_id"].get<std::string>() : DEFAULT_CLIENT_ID;
+        return app.clientId;
     }
 
     inline std::string getAppName(std::string processName) {
-        if (!std::filesystem::exists(CONFIG_FILENAME))
-            return DEFAULT_APP_NAME;
         auto app = getApp(processName);
-        return app.contains("name") ? app["name"].get<std::string>() : DEFAULT_APP_NAME;
+        return app.appName;
     }
 
     inline std::string getSearchEndpoint(std::string processName) {
-        if (!std::filesystem::exists(CONFIG_FILENAME))
-            return "";
         auto app = getApp(processName);
-        return app.contains("search_endpoint") ? app["search_endpoint"].get<std::string>() : "";
+        return app.searchEndpoint;
     }
 }  // namespace utils
 
