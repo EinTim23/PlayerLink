@@ -1,31 +1,33 @@
 {
+    "any_other": false,
     "apps": [
         {
+            "client_id": "1245257240890310686",
+            "enabled": true,
             "name": "Apple Music",
             "process_names": [
                 "AppleMusic.exe"
             ],
-            "enabled": true,
-            "search_endpoint": "https://music.apple.com/search?term=",
-            "client_id": "1245257240890310686"
+            "search_endpoint": "https://music.apple.com/search?term="
         },
         {
+            "client_id": "1245257414715113573",
+            "enabled": true,
             "name": "Spotify",
             "process_names": [
                 "Spotify.exe"
             ],
-            "enabled": true,
-            "search_endpoint": "https://open.spotify.com/search/",
-            "client_id": "1245257414715113573"
+            "search_endpoint": "https://open.spotify.com/search/"
         },
         {
+            "client_id": "1245257493966225488",
+            "enabled": true,
             "name": "Tidal",
             "process_names": [
                 "TIDAL.exe"
             ],
-            "enabled": true,
-            "search_endpoint": "https://listen.tidal.com/search?q=",
-            "client_id": "1245257493966225488"
+            "search_endpoint": "https://listen.tidal.com/search?q="
         }
-    ]
+    ],
+    "autostart": false
 }

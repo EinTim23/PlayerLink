@@ -16,11 +16,13 @@
 
 std::string lastPlayingSong = "";
 std::string lastMediaSource = "";
+std::string currentSongTitle = "";
 
 void handleRPCTasks() {
     while (true) {
         DiscordEventHandlers discordHandler{};
-        Discord_Initialize(utils::getClientID(lastMediaSource).c_str(), &discordHandler);
+        auto app = utils::getApp(lastMediaSource);
+        Discord_Initialize(app.clientId.c_str(), &discordHandler);
         if (Discord_IsConnected())
             break;
     }
@@ -39,14 +41,15 @@ void handleMediaTasks() {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto mediaInformation = backend::getMediaInformation();
         if (!mediaInformation) {
+            currentSongTitle = "";
             Discord_ClearPresence();  // Nothing is playing rn, clear presence
             continue;
         }
 
         if (mediaInformation->paused) {
             lastPlayingSong = "";
-            Discord_ClearPresence();  // TODO: allow user to keep presence when paused(because for
-                                      // some reason some people want this)
+            currentSongTitle = "";
+            Discord_ClearPresence();
             continue;
         }
 
@@ -57,6 +60,7 @@ void handleMediaTasks() {
             continue;
 
         lastPlayingSong = currentlyPlayingSong;
+        currentSongTitle = mediaInformation->songArtist + " - " + mediaInformation->songTitle;
 
         std::string currentMediaSource = mediaInformation->playbackSource;
 
@@ -65,7 +69,13 @@ void handleMediaTasks() {
             Discord_Shutdown();
         }  // reinitialize with new client id
 
-        std::string serviceName = utils::getAppName(lastMediaSource);
+        auto app = utils::getApp(lastMediaSource);
+
+        if (!app.enabled) {
+            Discord_ClearPresence();
+            continue;
+        }
+        std::string serviceName = app.appName;
 
         std::string activityState = "by " + mediaInformation->songArtist;
         DiscordRichPresence activity{};
@@ -90,7 +100,7 @@ void handleMediaTasks() {
             activity.startTimestamp = time(nullptr) - (mediaInformation->songElapsedTime / 1000);
             activity.endTimestamp = time(nullptr) + (remainingTime / 1000);
         }
-        std::string endpointURL = utils::getSearchEndpoint(lastMediaSource);
+        std::string endpointURL = app.searchEndpoint;
 
         std::string searchQuery = mediaInformation->songTitle + " " + mediaInformation->songArtist;
         std::string buttonName = "Search on " + serviceName;
@@ -115,7 +125,7 @@ public:
 protected:
     virtual wxMenu* CreatePopupMenu() override {
         wxMenu* menu = new wxMenu;
-        menu->Append(10004, _("Not Playing"));  // TODO: make this dynamic
+        menu->Append(10004, _(currentSongTitle == "" ? "Not Playing" : currentSongTitle));  // TODO: make this dynamic
         menu->Enable(10004, false);
         menu->AppendSeparator();
         menu->Append(10001, _("Settings"));
@@ -168,14 +178,33 @@ public:
         wxBoxSizer* appCheckboxContainer;
         appCheckboxContainer = new wxBoxSizer(wxVERTICAL);
 
-        auto apps = utils::getAllApps();
+        auto settings = utils::getSettings();
 
-        for (auto app : apps) {
+        for (auto app : settings.apps) {
             auto checkbox = new wxCheckBox(this, wxID_ANY, _(app.appName), wxDefaultPosition, wxDefaultSize, 0);
+            checkbox->SetValue(app.enabled);
+            checkbox->SetClientData(new utils::App(app));
+            checkbox->Bind(wxEVT_CHECKBOX, [checkbox](wxCommandEvent& event) {
+                bool isChecked = checkbox->IsChecked();
+                utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
+                appData->enabled = isChecked;
+                utils::saveSettings(appData);
+            });
+            checkbox->Bind(wxEVT_DESTROY, [checkbox](wxWindowDestroyEvent&) {
+                delete static_cast<utils::App*>(checkbox->GetClientData());
+            });
             appCheckboxContainer->Add(checkbox, 0, wxALL, 5);
         }
 
         anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
+        anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
+        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& event) {
+            bool isChecked = this->anyOtherCheckbox->IsChecked();
+            auto settings = utils::getSettings();
+            settings.anyOtherEnabled = isChecked;
+            utils::saveSettings(settings);
+        });
+
         appCheckboxContainer->Add(anyOtherCheckbox, 0, wxALL, 5);
 
         enabledAppsContainer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
@@ -193,8 +222,15 @@ public:
         settingsContainer->Add(startupText, 0, wxALL, 5);
 
         autostartCheckbox = new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
-        settingsContainer->Add(autostartCheckbox, 0, wxALL, 5);
+        autostartCheckbox->SetValue(settings.autoStart);
+        autostartCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& event) {
+            bool isChecked = this->autostartCheckbox->IsChecked();
+            auto settings = utils::getSettings();
+            settings.autoStart = isChecked;
+            utils::saveSettings(settings);
+        });
 
+        settingsContainer->Add(autostartCheckbox, 0, wxALL, 5);
         mainContainer->Add(settingsContainer, 0, wxEXPAND, 5);
 
         this->SetSizerAndFit(mainContainer);

@@ -24,6 +24,12 @@ namespace utils {
         std::vector<std::string> processNames;
     };
 
+    struct Settings {
+        bool autoStart;
+        bool anyOtherEnabled;
+        std::vector<App> apps;
+    };
+
     inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size) {
         wxMemoryInputStream stream(data, size);
         wxImage img(stream, wxBITMAP_TYPE_PNG);
@@ -100,38 +106,108 @@ namespace utils {
         }
         return "";
     }
+    inline void saveSettings(const App* newApp) {
+        nlohmann::json j;
 
-    inline std::vector<App> getAllApps() {
-        std::vector<App> results;
+        if (std::filesystem::exists(CONFIG_FILENAME)) {
+            std::ifstream i(CONFIG_FILENAME);
+            i >> j;
+        }
+
+        if (!j.contains("apps")) {
+            j["apps"] = nlohmann::json::array();
+        }
+
+        bool appFound = false;
+
+        for (auto& appJson : j["apps"]) {
+            if (appJson["name"] == newApp->appName) {
+                appJson["client_id"] = newApp->clientId;
+                appJson["search_endpoint"] = newApp->searchEndpoint;
+                appJson["enabled"] = newApp->enabled;
+
+                appJson["process_names"].clear();
+                for (const auto& processName : newApp->processNames) {
+                    appJson["process_names"].push_back(processName);
+                }
+
+                appFound = true;
+                break;
+            }
+        }
+
+        if (!appFound) {
+            nlohmann::json appJson;
+            appJson["name"] = newApp->appName;
+            appJson["client_id"] = newApp->clientId;
+            appJson["search_endpoint"] = newApp->searchEndpoint;
+            appJson["enabled"] = newApp->enabled;
+
+            for (const auto& processName : newApp->processNames) {
+                appJson["process_names"].push_back(processName);
+            }
+
+            j["apps"].push_back(appJson);
+        }
+
+        std::ofstream o(CONFIG_FILENAME);
+        o << j.dump(4);
+        o.close();
+    }
+
+    inline void saveSettings(const Settings& settings) {
+        nlohmann::json j;
+        j["autostart"] = settings.autoStart;
+        j["any_other"] = settings.anyOtherEnabled;
+
+        for (const auto& app : settings.apps) {
+            nlohmann::json appJson;
+            appJson["name"] = app.appName;
+            appJson["client_id"] = app.clientId;
+            appJson["search_endpoint"] = app.searchEndpoint;
+            appJson["enabled"] = app.enabled;
+
+            for (const auto& processName : app.processNames) appJson["process_names"].push_back(processName);
+
+            j["apps"].push_back(appJson);
+        }
+
+        std::ofstream o(CONFIG_FILENAME);
+        o << j.dump(4);
+        o.close();
+    }
+    inline Settings getSettings() {
+        Settings ret;
         if (!std::filesystem::exists(CONFIG_FILENAME))
-            return results;
-
-        std::ifstream i(CONFIG_FILENAME);
-        std::stringstream s;
-        s << i.rdbuf();
-        i.close();
+            return ret;
 
         try {
-            nlohmann::json j = nlohmann::json::parse(s.str());
-            auto apps = j["apps"];
-            for (auto app : apps) {
+            std::ifstream i(CONFIG_FILENAME);
+            nlohmann::json j;
+            i >> j;
+
+            ret.autoStart = j.value("autostart", false);
+            ret.anyOtherEnabled = j.value("any_other", false);
+
+            for (const auto& app : j["apps"]) {
                 App a;
-                a.appName = app["name"].get<std::string>();
-                a.clientId = app["client_id"].get<std::string>();
-                a.searchEndpoint = app["search_endpoint"].get<std::string>();
-                a.enabled = app["enabled"].get<bool>();
-                auto processNames = app["process_names"];
-                for (auto process : processNames) a.processNames.push_back(process.get<std::string>());
-                results.push_back(a);
+                a.appName = app.value("name", "");
+                a.clientId = app.value("client_id", "");
+                a.searchEndpoint = app.value("search_endpoint", "");
+                a.enabled = app.value("enabled", false);
+
+                for (const auto& process : app["process_names"]) a.processNames.push_back(process.get<std::string>());
+
+                ret.apps.push_back(a);
             }
-        } catch (nlohmann::json::parse_error& ex) {
-        }  // TODO: handle parse errors
-        return results;
+        } catch (const nlohmann::json::parse_error&) {
+        }  // TODO: handle error
+        return ret;
     }
 
     inline App getApp(std::string processName) {
-        auto apps = getAllApps();
-        for (auto app : apps) {
+        auto settings = getSettings();
+        for (auto app : settings.apps) {
             for (auto procName : app.processNames) {
                 if (procName == processName)
                     return app;
@@ -140,24 +216,9 @@ namespace utils {
         App a;
         a.clientId = DEFAULT_CLIENT_ID;
         a.appName = DEFAULT_APP_NAME;
-        a.enabled = true;
+        a.enabled = settings.anyOtherEnabled;
         a.searchEndpoint = "";
         return a;
-    }
-
-    inline std::string getClientID(std::string processName) {
-        auto app = getApp(processName);
-        return app.clientId;
-    }
-
-    inline std::string getAppName(std::string processName) {
-        auto app = getApp(processName);
-        return app.appName;
-    }
-
-    inline std::string getSearchEndpoint(std::string processName) {
-        auto app = getApp(processName);
-        return app.searchEndpoint;
     }
 }  // namespace utils
 
