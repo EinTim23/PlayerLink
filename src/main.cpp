@@ -30,6 +30,7 @@ void handleRPCTasks() {
             break;
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+    Discord_Shutdown();
     handleRPCTasks();  // this could theoretically cause a stack overflow if discord is restarted often enough
 }
 

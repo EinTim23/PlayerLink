@@ -53,30 +53,18 @@ namespace utils {
     }
 
     inline std::string urlEncode(std::string str) {
-        std::string new_str = "";
-        char c;
-        int ic;
-        const char* chars = str.c_str();
-        char bufHex[10];
-        int len = strlen(chars);
+        std::ostringstream encoded;
+        encoded << std::hex << std::uppercase;
 
-        for (int i = 0; i < len; i++) {
-            c = chars[i];
-            ic = c;
-            if (c == ' ')
-                new_str += '+';
-            else if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
-                new_str += c;
-            else {
-                snprintf(bufHex, sizeof(bufHex), "%X", c);
-                if (ic < 16)
-                    new_str += "%0";
-                else
-                    new_str += "%";
-                new_str += bufHex;
+        for (unsigned char c : str) {
+            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+                encoded << c;
+            } else {
+                encoded << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(c);
             }
         }
-        return new_str;
+
+        return encoded.str();
     }
 
     inline size_t curlWriteCallback(char* contents, size_t size, size_t nmemb, void* userp) {
@@ -144,8 +132,8 @@ namespace utils {
     inline App getApp(std::string processName) {
         auto apps = getAllApps();
         for (auto app : apps) {
-            for(auto procName : app.processNames) {
-                if(procName == processName)
+            for (auto procName : app.processNames) {
+                if (procName == processName)
                     return app;
             }
         }

@@ -4,6 +4,7 @@
 #include <winrt/windows.storage.streams.h>
 
 #include <chrono>
+#include <codecvt>
 
 #include "../backend.hpp"
 #include "../utils.hpp"
@@ -11,11 +12,11 @@
 using namespace winrt;
 using namespace Windows::Media::Control;
 using namespace Windows::Storage::Streams;
-
-// a winrt::hstring is just an extended std::wstring, so we can use std::strings built in conversion.
+#define EM_DASH "\xE2\x80\x94"
+// codecvt is deprecated, but there is no good portable way to do this, I could technically use the winapi as this is the windows backend tho
 std::string toStdString(winrt::hstring in) {
-    std::string converted = std::string(in.begin(), in.end());
-    return converted;
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(in.c_str());
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
@@ -54,9 +55,9 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     if (artist == "")
         artist = toStdString(mediaProperties.AlbumArtist());  // Needed for some apps
 
-    if (artist.find("\x14") != std::string::npos) {
-        albumName = artist.substr(artist.find("\x14") + 1);
-        artist = artist.substr(0, artist.find("\x14"));
+    if (artist.find(EM_DASH) != std::string::npos) {
+        albumName = artist.substr(artist.find(EM_DASH) + 3);
+        artist = artist.substr(0, artist.find(EM_DASH));
         utils::trim(artist);
         utils::trim(albumName);
     }
@@ -66,5 +67,5 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         toStdString(mediaProperties.Title()), artist, albumName, toStdString(currentSession.SourceAppUserModelId()),
         thumbnailData, endTime, elapsedTime);
 }
-
+#undef EM_DASH
 #endif
