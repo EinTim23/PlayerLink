@@ -1,10 +1,15 @@
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <objbase.h>
+#include <shlobj.h>
+#include <windows.h>
 #include <winrt/windows.foundation.h>
 #include <winrt/windows.media.control.h>
 #include <winrt/windows.storage.streams.h>
 
 #include <chrono>
 #include <codecvt>
+#include <filesystem>
 
 #include "../backend.hpp"
 #include "../utils.hpp"
@@ -13,10 +18,52 @@ using namespace winrt;
 using namespace Windows::Media::Control;
 using namespace Windows::Storage::Streams;
 #define EM_DASH "\xE2\x80\x94"
-// codecvt is deprecated, but there is no good portable way to do this, I could technically use the winapi as this is the windows backend tho
+// codecvt is deprecated, but there is no good portable way to do this, I could technically use the winapi as this is
+// the windows backend tho
 std::string toStdString(winrt::hstring in) {
     std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(in.c_str());
+}
+
+bool CreateShortcut(std::string source, std::string target) {
+    CoInitialize(nullptr);
+    WCHAR src[MAX_PATH];
+    IShellLinkW* pShellLink = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_IShellLink,
+                                  reinterpret_cast<void**>(&pShellLink));
+
+    if (SUCCEEDED(hr) && pShellLink) {
+        MultiByteToWideChar(CP_ACP, 0, source.c_str(), -1, src, MAX_PATH);
+        pShellLink->SetPath(src);
+
+        IPersistFile* pPersistFile = nullptr;
+        hr = pShellLink->QueryInterface(IID_IPersistFile, reinterpret_cast<void**>(&pPersistFile));
+
+        if (SUCCEEDED(hr) && pPersistFile) {
+            WCHAR dst[MAX_PATH];
+            MultiByteToWideChar(CP_ACP, 0, target.c_str(), -1, dst, MAX_PATH);
+            hr = pPersistFile->Save(dst, TRUE);
+            pPersistFile->Release();
+        }
+
+        pShellLink->Release();
+    }
+
+    CoUninitialize();
+    return SUCCEEDED(hr);
+}
+
+bool backend::toggleAutostart(bool enabled) {
+    std::filesystem::path shortcutPath = std::getenv("APPDATA");
+    shortcutPath = shortcutPath / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "PlayerLink.lnk";
+    if (!enabled && std::filesystem::exists(shortcutPath)) {
+        std::filesystem::remove(shortcutPath);
+        return true;
+    }
+    char binaryPath[MAX_PATH]{};
+    GetModuleFileNameA(NULL, binaryPath, MAX_PATH);
+    bool result = CreateShortcut(binaryPath, shortcutPath.string());
+    return result;
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {

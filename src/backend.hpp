@@ -27,6 +27,7 @@ struct MediaInfo {
 };
 
 namespace backend {
+    bool toggleAutostart(bool enabled);
     std::shared_ptr<MediaInfo> getMediaInformation();
 }
 

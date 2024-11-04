@@ -239,6 +239,7 @@ public:
             bool isChecked = this->autostartCheckbox->IsChecked();
             auto settings = utils::getSettings();
             settings.autoStart = isChecked;
+            backend::toggleAutostart(isChecked);
             utils::saveSettings(settings);
         });
 
