@@ -93,6 +93,8 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
 
         std::vector<uint8_t> buffer(size);
         reader.ReadBytes(buffer);
+        reader.Close();
+        
         thumbnailData = std::string(buffer.begin(), buffer.end());
         stream.Close();
     }
