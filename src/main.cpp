@@ -20,20 +20,22 @@ std::string currentSongTitle = "";
 
 void handleRPCTasks() {
     while (true) {
-        DiscordEventHandlers discordHandler{};
-        auto app = utils::getApp(lastMediaSource);
-        Discord_Initialize(app.clientId.c_str(), &discordHandler);
-        if (Discord_IsConnected())
-            break;
+        while (true) {
+            DiscordEventHandlers discordHandler{};
+            auto app = utils::getApp(lastMediaSource);
+            Discord_Initialize(app.clientId.c_str(), &discordHandler);
+            if (Discord_IsConnected())
+                break;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        while (true) {
+            Discord_RunCallbacks();
+            if (!Discord_IsConnected())
+                break;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        Discord_Shutdown();
     }
-    while (true) {
-        Discord_RunCallbacks();
-        if (!Discord_IsConnected())
-            break;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-    Discord_Shutdown();
-    handleRPCTasks();  // this could theoretically cause a stack overflow if discord is restarted often enough
 }
 
 void handleMediaTasks() {
