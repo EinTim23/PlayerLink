@@ -37,6 +37,7 @@ void handleRPCTasks() {
 }
 
 void handleMediaTasks() {
+    int64_t lastMs = 0;
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto mediaInformation = backend::getMediaInformation();
@@ -47,6 +48,7 @@ void handleMediaTasks() {
         }
 
         if (mediaInformation->paused) {
+            lastMs = 0;
             lastPlayingSong = "";
             currentSongTitle = "";
             Discord_ClearPresence();
@@ -55,8 +57,13 @@ void handleMediaTasks() {
 
         std::string currentlyPlayingSong = mediaInformation->songTitle + mediaInformation->songArtist +
                                            mediaInformation->songAlbum + std::to_string(mediaInformation->songDuration);
+        int64_t currentMs = mediaInformation->songElapsedTime;
 
-        if (currentlyPlayingSong == lastPlayingSong)
+        bool shouldContinue =
+            currentlyPlayingSong == lastPlayingSong && (lastMs <= currentMs) && (lastMs + 3000 >= currentMs);
+        lastMs = currentMs;
+
+        if (shouldContinue)
             continue;
 
         lastPlayingSong = currentlyPlayingSong;
@@ -122,10 +129,14 @@ public:
 
     void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
 
+    void OnMenuAbout(wxCommandEvent& evt) {
+        wxMessageBox(_("Made with <3 by EinTim"), _("PlayerLink"), wxOK | wxICON_INFORMATION);
+    }
+
 protected:
     virtual wxMenu* CreatePopupMenu() override {
         wxMenu* menu = new wxMenu;
-        menu->Append(10004, _(currentSongTitle == "" ? "Not Playing" : currentSongTitle));  // TODO: make this dynamic
+        menu->Append(10004, _(currentSongTitle == "" ? "Not Playing" : currentSongTitle));
         menu->Enable(10004, false);
         menu->AppendSeparator();
         menu->Append(10001, _("Settings"));
@@ -134,6 +145,7 @@ protected:
         menu->Append(10002, _("Quit PlayerLink..."));
         Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuOpen, this, 10001);
         Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuExit, this, 10002);
+        Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuAbout, this, 10003);
         return menu;
     }
 
