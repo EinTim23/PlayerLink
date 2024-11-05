@@ -44,6 +44,49 @@ std::string getActivePlayer(DBusConnection* conn) {
     return active_player;
 }
 
+bool isPlayerPaused(DBusConnection* conn, const std::string& player) {
+    DBusError err;
+    DBusMessage* msg;
+    DBusMessage* reply;
+    DBusMessageIter args;
+    const char* playbackStatus = nullptr;
+
+    dbus_error_init(&err);
+
+    msg = dbus_message_new_method_call(player.c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties",
+                                       "Get");
+
+    if (!msg) {
+        std::cerr << "Message Null" << std::endl;
+        return false;
+    }
+
+    const char* interface = "org.mpris.MediaPlayer2.Player";
+    const char* property = "PlaybackStatus";
+    dbus_message_append_args(msg, DBUS_TYPE_STRING, &interface, DBUS_TYPE_STRING, &property, DBUS_TYPE_INVALID);
+
+    reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
+    dbus_message_unref(msg);
+
+    if (!reply) {
+        if (dbus_error_is_set(&err))
+            dbus_error_free(&err);
+
+        return false;
+    }
+
+    if (dbus_message_iter_init(reply, &args) && DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&args)) {
+        DBusMessageIter variant;
+        dbus_message_iter_recurse(&args, &variant);
+        dbus_message_iter_get_basic(&variant, &playbackStatus);
+    }
+
+    bool isPaused = (playbackStatus && std::string(playbackStatus) == "Paused");
+
+    dbus_message_unref(reply);
+    return isPaused;
+}
+
 void getNowPlaying(DBusConnection* conn, const std::string& player) {
     DBusMessage* msg;
     DBusMessageIter args;
