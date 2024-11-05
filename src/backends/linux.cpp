@@ -1,11 +1,19 @@
 #if !defined(_WIN32) && !defined(__APPLE__)
 #include <dbus/dbus.h>
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 #include "../backend.hpp"
 
 DBusConnection* conn = nullptr;
+
+std::string getExecutablePath() {
+    char result[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
+    return (count != -1) ? std::string(result, count) : std::string();
+}
 
 std::string getActivePlayer(DBusConnection* conn) {
     DBusMessage* msg;
@@ -219,8 +227,40 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     if (player == "")
         return nullptr;
     getNowPlaying(conn, player);
+    std::cout << "isPaused: " << isPlayerPaused(conn, player) << " \n";
     return nullptr;
 }
 
-bool backend::toggleAutostart(bool enabled) { return false; }
+bool backend::toggleAutostart(bool enabled) {
+    const char* xdgHome = std::getenv("XDG_CONFIG_HOME");
+
+    const char* home = std::getenv("HOME");
+
+    if (!xdgHome && !home)
+        return false;
+
+    std::string realxdgHome = xdgHome ? xdgHome : home;
+    std::filesystem::path xdgAutostartPath = realxdgHome;
+    if (!xdgHome)
+        xdgAutostartPath = xdgAutostartPath / ".config";
+    xdgAutostartPath = xdgAutostartPath / "autostart";
+
+    std::filesystem::create_directories(xdgAutostartPath);
+
+    std::filesystem::path desktopPath = xdgAutostartPath / "PlayerLink.desktop";
+
+    if (!enabled && std::filesystem::exists(desktopPath)) {
+        std::filesystem::remove(desktopPath);
+        return true;
+    }
+
+    std::string formattedPlist = "[Desktop Entry]\nType=Application\nName=PlayerLink\nExec=" + getExecutablePath() +
+                                 "\nX-GNOME-Autostart-enabled=true\n";
+    std::ofstream o(desktopPath);
+    o.write(formattedPlist.c_str(), formattedPlist.size());
+    o.close();
+    return true;
+}
+
+#undef XDG_AUTOSTART_TEMPLATE
 #endif
