@@ -13,3 +13,6 @@
 [submodule "vendor/wxWidgets"]
 	path = vendor/wxWidgets
 	url = https://github.com/wxWidgets/wxWidgets.git
+[submodule "vendor/libdbus"]
+	path = vendor/libdbus
+	url = https://gitlab.freedesktop.org/dbus/dbus.git
