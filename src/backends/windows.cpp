@@ -116,5 +116,8 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         toStdString(mediaProperties.Title()), artist, albumName, toStdString(currentSession.SourceAppUserModelId()),
         thumbnailData, endTime, elapsedTime);
 }
+
+bool backend::init() { return true; }
+
 #undef EM_DASH
 #endif

@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include "../backend.hpp"
-bool initialized = false;
+
 DBusConnection* conn = nullptr;
 
 std::string getActivePlayer(DBusConnection* conn) {
@@ -202,18 +202,19 @@ void getNowPlaying(DBusConnection* conn, const std::string& player) {
     dbus_message_unref(reply);
 }
 
-std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    if (!initialized) {
-        DBusError err;
-        dbus_error_init(&err);
+bool backend::init() {
+    DBusError err;
+    dbus_error_init(&err);
 
-        conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
-        if (!conn) {
-            dbus_error_free(&err);
-            return nullptr;
-        }
-        initialized = true;
+    conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
+    if (!conn) {
+        dbus_error_free(&err);
+        return false;
     }
+    return true;
+}
+
+std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     std::string player = getActivePlayer(conn);
     if (player == "")
         return nullptr;

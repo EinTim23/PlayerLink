@@ -1,5 +1,6 @@
 #ifdef __APPLE__
 #include <AppKit/AppKit.h>
+#include <Cocoa/Cocoa.h>
 #include <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 #include <filesystem>
@@ -26,6 +27,13 @@
     <true/>
   </dict>
 </plist>)"
+
+void hideDockIcon(bool shouldHide) {
+    if (shouldHide)
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+    else
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+}
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     __block NSString *appName = nil;
@@ -87,6 +95,7 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appNameString, thumbnailData,
                                        durationMs, elapsedTimeMs);
 }
+
 bool backend::toggleAutostart(bool enabled) {
     std::filesystem::path launchAgentPath = std::getenv("HOME");
     launchAgentPath = launchAgentPath / "Library" / "LaunchAgents" / "PlayerLink.plist";
@@ -101,5 +110,11 @@ bool backend::toggleAutostart(bool enabled) {
     o.close();
     return true;
 }
+
+bool backend::init() {
+    hideDockIcon(true);
+    return true;
+}
+
 #undef LAUNCH_AGENT_TEMPLATE
 #endif
