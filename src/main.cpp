@@ -6,8 +6,6 @@
 #include <wx/wx.h>
 
 #include <chrono>
-#include <fstream>
-#include <iostream>
 #include <thread>
 
 #include "backend.hpp"
