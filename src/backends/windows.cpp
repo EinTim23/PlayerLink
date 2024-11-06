@@ -4,6 +4,7 @@
 #include <shlobj.h>
 #include <windows.h>
 #include <winrt/windows.foundation.h>
+#include <winrt/windows.foundation.metadata.h>
 #include <winrt/windows.media.control.h>
 #include <winrt/windows.storage.streams.h>
 
@@ -94,7 +95,7 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         std::vector<uint8_t> buffer(size);
         reader.ReadBytes(buffer);
         reader.Close();
-        
+
         thumbnailData = std::string(buffer.begin(), buffer.end());
         stream.Close();
     }
@@ -117,7 +118,10 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         thumbnailData, endTime, elapsedTime);
 }
 
-bool backend::init() { return true; }
+bool backend::init() {
+    return winrt::Windows::Foundation::Metadata::ApiInformation::IsTypePresent(
+        L"Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager");
+}
 
 #undef EM_DASH
 #endif
