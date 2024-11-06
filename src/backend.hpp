@@ -14,6 +14,7 @@ struct MediaInfo {
     int64_t songDuration;
     int64_t songElapsedTime;
     std::string playbackSource;
+    MediaInfo() {}
     MediaInfo(bool p, std::string title, std::string artist, std::string album, std::string source,
               std::string thumbnail, int duration, int elapsed)
         : paused(p),
