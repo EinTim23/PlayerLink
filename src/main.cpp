@@ -258,6 +258,11 @@ public:
 class PlayerLink : public wxApp {
 public:
     virtual bool OnInit() override {
+        if (!backend::init()) {
+            wxMessageBox(_("Error initializing platform backend!"), _("PlayerLink"), wxOK | wxICON_ERROR);
+            return false;
+        }
+
         if (wxSystemSettings::GetAppearance().IsSystemDark())  // To support the native dark mode on windows 10 and up
             this->SetAppearance(wxAppBase::Appearance::Dark);
 
@@ -269,7 +274,7 @@ public:
                 frame->Hide();
                 event.Veto();
             } else
-                this->ExitMainLoop();
+                std::exit(0);
         });
         wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
         trayIcon->SetIcon(icon, _("PlayerLink"));
@@ -283,10 +288,6 @@ private:
 wxIMPLEMENT_APP_NO_MAIN(PlayerLink);
 
 int main(int argc, char** argv) {
-    if (!backend::init()) {
-        wxMessageBox(_("Error initializing platform backend!"), _("PlayerLink"), wxOK | wxICON_ERROR);
-        return -1;
-    }
     std::thread rpcThread(handleRPCTasks);
     rpcThread.detach();
     std::thread mediaThread(handleMediaTasks);

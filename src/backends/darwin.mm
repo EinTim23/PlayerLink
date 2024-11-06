@@ -4,29 +4,10 @@
 #include <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 #include <filesystem>
-#include <format>
 #include <fstream>
 
 #include "../MediaRemote.hpp"
 #include "../backend.hpp"
-
-#define LAUNCH_AGENT_TEMPLATE \
-    R"(<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-  <dict>
-    <key>Label</key>
-    <string>{}</string>
-    <key>ProgramArguments</key>
-      <array>
-        <string>{}</string>
-      </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>AbandonProcessGroup</key>
-    <true/>
-  </dict>
-</plist>)"
 
 void hideDockIcon(bool shouldHide) {
     if (shouldHide)
@@ -104,7 +85,16 @@ bool backend::toggleAutostart(bool enabled) {
         return true;
     }
     NSString *binaryPath = [[[NSProcessInfo processInfo] arguments][0] stringByStandardizingPath];
-    std::string formattedPlist = std::format(LAUNCH_AGENT_TEMPLATE, "PlayerLink", binaryPath.UTF8String);
+
+    //I would also like to use std::format here, but well I also want to support older mac os versions.
+    std::string formattedPlist =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
+        "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n  <dict>\n\n    "
+        "<key>Label</key>\n    <string>PlayerLink</string>\n    <key>ProgramArguments</key>\n      <array>\n        "
+        "<string>" +
+        std::string(binaryPath.UTF8String) +
+        "</string>\n      </array>\n    <key>RunAtLoad</key>\n    <true/>\n    <key>AbandonProcessGroup</key>\n    "
+        "<true/>\n  </dict>\n</plist>";
     std::ofstream o(launchAgentPath);
     o.write(formattedPlist.c_str(), formattedPlist.size());
     o.close();
@@ -113,7 +103,7 @@ bool backend::toggleAutostart(bool enabled) {
 
 bool backend::init() {
     hideDockIcon(true);
-    return true;
+    return false;
 }
 
 #undef LAUNCH_AGENT_TEMPLATE

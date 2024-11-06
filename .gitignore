@@ -3,3 +3,4 @@ build/*
 .cache/*
 src/rsrc.hpp
 PlayerLink.exe
+.vscode/*
