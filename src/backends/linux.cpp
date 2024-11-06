@@ -189,8 +189,17 @@ bool backend::init() {
 
     conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
     if (!conn) {
-        dbus_error_free(&err);
-        return false;
+        if (dbus_error_is_set(&err)) 
+            dbus_error_free(&err);
+
+        //fallback to system bus if user doesn't have a session specific bus
+        conn = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
+        if(!conn) {
+            if (dbus_error_is_set(&err)) 
+                dbus_error_free(&err);
+
+            return false;
+        }
     }
     return true;
 }
