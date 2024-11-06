@@ -79,7 +79,10 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
 
 bool backend::toggleAutostart(bool enabled) {
     std::filesystem::path launchAgentPath = std::getenv("HOME");
-    launchAgentPath = launchAgentPath / "Library" / "LaunchAgents" / "PlayerLink.plist";
+    launchAgentPath = launchAgentPath / "Library" / "LaunchAgents";
+    std::filesystem::create_directories(launchAgentPath);
+    launchAgentPath = launchAgentPath / "PlayerLink.plist";
+    
     if (!enabled && std::filesystem::exists(launchAgentPath)) {
         std::filesystem::remove(launchAgentPath);
         return true;
