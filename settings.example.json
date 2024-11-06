@@ -1,0 +1,17 @@
+{
+    "any_other": false,
+    "apps": [
+        {
+            "client_id": "1245257414715113573",
+            "enabled": true,
+            "name": "Spotify",
+            "process_names": [
+                "org.mpris.MediaPlayer2.spotify",
+                "com.spotify.client",
+                "Spotify.exe"
+            ],
+            "search_endpoint": "https://open.spotify.com/search/"
+        }
+    ],
+    "autostart": false
+}
