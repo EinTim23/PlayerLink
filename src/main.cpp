@@ -164,11 +164,12 @@ protected:
     wxCheckBox* autostartCheckbox;
 
 public:
-    PlayerLinkFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
+    PlayerLinkFrame(wxWindow* parent, wxIcon& icon, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(300, 200),
                     long style = wxDEFAULT_FRAME_STYLE & ~wxRESIZE_BORDER & ~wxMAXIMIZE_BOX)
         : wxFrame(parent, id, title, pos, size, style) {
         this->SetSizeHints(wxDefaultSize, wxDefaultSize);
+        this->SetIcon(icon);
 
         wxBoxSizer* mainContainer;
         mainContainer = new wxBoxSizer(wxVERTICAL);
@@ -267,7 +268,8 @@ public:
             this->SetAppearance(wxAppBase::Appearance::Dark);
 
         wxInitAllImageHandlers();
-        PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, wxID_ANY, _("PlayerLink"));
+        wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
+        PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, icon, wxID_ANY, _("PlayerLink"));
         trayIcon = new PlayerLinkIcon(frame);
         frame->Bind(wxEVT_CLOSE_WINDOW, [=](wxCloseEvent& event) {
             if (event.CanVeto()) {
@@ -276,7 +278,7 @@ public:
             } else
                 std::exit(0);
         });
-        wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
+        
         trayIcon->SetIcon(icon, _("PlayerLink"));
         return true;
     }
