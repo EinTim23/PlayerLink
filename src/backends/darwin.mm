@@ -103,7 +103,7 @@ bool backend::toggleAutostart(bool enabled) {
 
 bool backend::init() {
     hideDockIcon(true);
-    return false;
+    return true;
 }
 
 #undef LAUNCH_AGENT_TEMPLATE
