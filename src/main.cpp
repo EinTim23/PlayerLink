@@ -136,7 +136,7 @@ public:
 protected:
     virtual wxMenu* CreatePopupMenu() override {
         wxMenu* menu = new wxMenu;
-        menu->Append(10004, _(currentSongTitle == "" ? "Not Playing" : currentSongTitle));
+        menu->Append(10004, currentSongTitle == "" ? _("Not Playing") : wxString::FromUTF8(currentSongTitle));
         menu->Enable(10004, false);
         menu->AppendSeparator();
         menu->Append(10001, _("Settings"));
