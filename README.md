@@ -77,5 +77,9 @@ The config is currently located in the same folder as PlayerLink, this will be c
     # for a debug build
     cmake --build build
     ```
+
+## Contributing
+This repository is open for contributions. You can view the current roadmap [here](https://github.com/EinTim23/PlayerLink/projects) or implement your own features and then open a pull request. Please keep your code as consistent and clean as possible.
+
 ## Credits
 This project was heavily inspired by [Alexandra Aurora's MusicRPC](https://github.com/AlexandraAurora/MusicRPC) and her project may provide a better experience when being on Mac OS only.
