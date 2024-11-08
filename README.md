@@ -7,7 +7,7 @@ Cross platform, universal discord rich presence for media players.
 - Pretty much any linux distribution with gtk3 and dbus support
 
 ## Showcase
-You can add predefined players to the settings.json to customise the name it shows in discord, edit the search button base url, and app icon. By default it will just display as "Music" without a search button or app icon. In the future I want to add an option to the ui to add custom apps.
+You can add predefined players to the settings.json to customise the name it shows in discord, edit the search button base url, and app icon. By default it will just display as "Music" without a search button or app icon. 
 
 <p align="center" width="100%">
     <img src="img/showcase.png" alt="rich presence" /> 
@@ -32,8 +32,15 @@ The Mac OS backend is powered by the private MediaRemote framework. It provides 
 ### Linux
 The linux backend is powered by [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/). It allows to query the system wide media information via dbus.
 
-## Adding custom apps to the settings.json
-The config is currently located in the same folder as PlayerLink, this will be changed in a future release. An example on how to add custom apps to the json can be found [here](./settings.example.json). In the future there will be a UI to configure custom apps in a more user friendly way.
+## Config
+**Mac OS**
+`~/Library/Application Support/PlayerLink`
+**Linux**
+`~/.config/PlayerLink`
+**Windows**
+`%appdata%\PlayerLink`
+
+An example on how to add custom apps to the config can be found [here](./settings.example.json). In the future there will be a UI to configure custom apps in a more user friendly way.
 
 ## Building
 

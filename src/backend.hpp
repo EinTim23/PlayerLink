@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <filesystem>
 
 struct MediaInfo {
     bool paused;
@@ -30,6 +31,7 @@ struct MediaInfo {
 namespace backend {
     bool init();
     bool toggleAutostart(bool enabled);
+    std::filesystem::path getConfigDirectory();
     std::shared_ptr<MediaInfo> getMediaInformation();
 }  // namespace backend
 

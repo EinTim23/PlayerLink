@@ -11,9 +11,11 @@
 #include <string>
 #include <vector>
 
+#include "backend.hpp"
+
 #define DEFAULT_CLIENT_ID "1301849203378622545"
 #define DEFAULT_APP_NAME "Music"
-#define CONFIG_FILENAME "settings.json"
+#define CONFIG_FILENAME backend::getConfigDirectory() / "settings.json"
 
 namespace utils {
     struct App {
@@ -177,9 +179,14 @@ namespace utils {
         o.close();
     }
     inline Settings getSettings() {
+        std::filesystem::create_directories(backend::getConfigDirectory());
         Settings ret;
-        if (!std::filesystem::exists(CONFIG_FILENAME))
+        if (!std::filesystem::exists(CONFIG_FILENAME)) {
+            ret.anyOtherEnabled = true;
+            ret.autoStart = false;
+            saveSettings(ret);
             return ret;
+        }
 
         try {
             std::ifstream i(CONFIG_FILENAME);
@@ -200,8 +207,7 @@ namespace utils {
 
                 ret.apps.push_back(a);
             }
-        } catch (const nlohmann::json::parse_error&) {
-        }  // TODO: handle error
+        } catch (const nlohmann::json::parse_error&) {}
         return ret;
     }
 

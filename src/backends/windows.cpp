@@ -54,12 +54,18 @@ bool CreateShortcut(std::string source, std::string target) {
     return SUCCEEDED(hr);
 }
 
+std::filesystem::path backend::getConfigDirectory() {
+    std::filesystem::path configDirectoryPath = std::getenv("APPDATA");
+    configDirectoryPath = configDirectoryPath / "PlayerLink";
+    return configDirectoryPath;
+}
+
 bool backend::toggleAutostart(bool enabled) {
     std::filesystem::path shortcutPath = std::getenv("APPDATA");
     shortcutPath = shortcutPath / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup";
     std::filesystem::create_directories(shortcutPath);
     shortcutPath = shortcutPath / "PlayerLink.lnk";
-    
+
     if (!enabled && std::filesystem::exists(shortcutPath)) {
         std::filesystem::remove(shortcutPath);
         return true;

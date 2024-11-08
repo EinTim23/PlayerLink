@@ -77,6 +77,12 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
                                        durationMs, elapsedTimeMs);
 }
 
+std::filesystem::path backend::getConfigDirectory() {
+    std::filesystem::path configDirectoryPath = std::getenv("HOME");
+    configDirectoryPath = configDirectoryPath / "Library" / "Application Support" / "PlayerLink";
+    return configDirectoryPath;
+}
+
 bool backend::toggleAutostart(bool enabled) {
     std::filesystem::path launchAgentPath = std::getenv("HOME");
     launchAgentPath = launchAgentPath / "Library" / "LaunchAgents";

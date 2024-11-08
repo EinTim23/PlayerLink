@@ -215,6 +215,12 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     return std::make_shared<MediaInfo>(ret);
 }
 
+std::filesystem::path backend::getConfigDirectory() {
+    std::filesystem::path configDirectoryPath = std::getenv("HOME");
+    configDirectoryPath = configDirectoryPath / ".config" / "PlayerLink";
+    return configDirectoryPath;
+}
+
 bool backend::toggleAutostart(bool enabled) {
     const char* xdgHome = std::getenv("XDG_CONFIG_HOME");
 
