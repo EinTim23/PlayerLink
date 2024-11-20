@@ -1,8 +1,10 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <objbase.h>
+#include <psapi.h>
 #include <shlobj.h>
 #include <windows.h>
+#include <appmodel.h>
 #include <winrt/windows.foundation.h>
 #include <winrt/windows.foundation.metadata.h>
 #include <winrt/windows.media.control.h>
@@ -24,6 +26,58 @@ using namespace Windows::Storage::Streams;
 std::string toStdString(winrt::hstring in) {
     std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(in.c_str());
+}
+
+std::string getAppModelIdOfProcess(HANDLE hProc) {
+    UINT32 length = 0;
+    LONG rc = GetApplicationUserModelId(hProc, &length, NULL);
+    if (rc != ERROR_INSUFFICIENT_BUFFER)
+        return "";
+
+    PWSTR fullName = (PWSTR)malloc(length * sizeof(*fullName));
+    if (!fullName)
+        return "";
+
+    rc = GetApplicationUserModelId(hProc, &length, fullName);
+    if (rc != ERROR_SUCCESS) {
+        free(fullName);
+        return "";
+    }
+    std::string name = toStdString(fullName);
+    free(fullName);
+    return name;
+}
+
+std::string getProcessNameFromAppModelId(std::string appModelId) {
+    DWORD processes[1024];
+    DWORD cbNeeded;
+
+    if (!EnumProcesses(processes, sizeof(processes), &cbNeeded))
+        return "";
+
+    unsigned int processCount = cbNeeded / sizeof(DWORD);
+
+    for (DWORD i = 0; i < processCount; i++) {
+        DWORD processID = processes[i];
+
+        HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processID);
+        if (hProcess) {
+            std::string modelid = getAppModelIdOfProcess(hProcess);
+            
+            if (modelid != appModelId) {
+                CloseHandle(hProcess);
+                continue;
+            }
+
+            char exeName[MAX_PATH]{};
+            DWORD size = MAX_PATH;
+            QueryFullProcessImageNameA(hProcess, 0, exeName, &size);
+            std::filesystem::path exePath = exeName;
+            CloseHandle(hProcess);
+            return exePath.filename().string();
+        }
+    }
+    return "";
 }
 
 bool CreateShortcut(std::string source, std::string target) {
@@ -121,10 +175,18 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         utils::trim(albumName);
     }
 
+    std::string modelId = toStdString(currentSession.SourceAppUserModelId());
+
+    // I do know that this is disgusting, but for some reason microsoft decided to switch out the exe name with the
+    // ApplicationUserModelId in some version of windows 11. So we check if it's an exe name, if not we are on some
+    // newer windows version and need to get the exe name from the model id. We cannot directly work with the model id
+    // because it's unique per machine and therefore would mess up configs with preconfigured apps.
+    if (modelId.find(".exe") == std::string::npos)
+        modelId = getProcessNameFromAppModelId(modelId);
+
     return std::make_shared<MediaInfo>(
         playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused,
-        toStdString(mediaProperties.Title()), artist, albumName, toStdString(currentSession.SourceAppUserModelId()),
-        thumbnailData, endTime, elapsedTime);
+        toStdString(mediaProperties.Title()), artist, albumName, modelId, thumbnailData, endTime, elapsedTime);
 }
 
 bool backend::init() {
