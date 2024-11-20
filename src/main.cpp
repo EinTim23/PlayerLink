@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "backend.hpp"
+#include "lastfm.hpp"
 #include "rsrc.hpp"
 #include "utils.hpp"
 
@@ -37,6 +38,15 @@ void handleRPCTasks() {
 }
 
 void handleMediaTasks() {
+    auto settings = utils::getSettings();
+    LastFM lastfm(settings.lastfm.username, settings.lastfm.password, settings.lastfm.api_key,
+                  settings.lastfm.api_secret);
+    if (settings.lastfm.enabled) {
+        LastFM::LASTFM_STATUS status = lastfm.authenticate();
+        if (status)
+            wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
+    }
+
     int64_t lastMs = 0;
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -49,7 +59,6 @@ void handleMediaTasks() {
 
         if (mediaInformation->paused) {
             lastMs = 0;
-            lastPlayingSong = "";
             currentSongTitle = "";
             Discord_ClearPresence();
             continue;
@@ -65,6 +74,10 @@ void handleMediaTasks() {
 
         if (shouldContinue)
             continue;
+
+        if (lastPlayingSong.find(mediaInformation->songTitle + mediaInformation->songArtist +
+                                 mediaInformation->songAlbum) == std::string::npos)
+            lastfm.scrobble(mediaInformation->songArtist, mediaInformation->songTitle);
 
         lastPlayingSong = currentlyPlayingSong;
         currentSongTitle = mediaInformation->songArtist + " - " + mediaInformation->songTitle;
@@ -278,7 +291,7 @@ public:
             } else
                 std::exit(0);
         });
-        
+
         trayIcon->SetIcon(icon, _("PlayerLink"));
         return true;
     }

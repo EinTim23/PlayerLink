@@ -26,9 +26,18 @@ namespace utils {
         std::vector<std::string> processNames;
     };
 
+    struct LastFMSettings {
+        bool enabled;
+        std::string username;
+        std::string password;
+        std::string api_key;
+        std::string api_secret;
+    };
+
     struct Settings {
         bool autoStart;
         bool anyOtherEnabled;
+        LastFMSettings lastfm;
         std::vector<App> apps;
     };
 
@@ -80,7 +89,18 @@ namespace utils {
         return size * nmemb;
     }
 
-    inline std::string getRequest(std::string url) {
+    inline std::string getURLEncodedPostBody(const std::map<std::string, std::string>& parameters) {
+        std::string encodedPostBody = "";
+        for (const auto& parameter : parameters) {
+            encodedPostBody += parameter.first;
+            encodedPostBody += "=";
+            encodedPostBody += parameter.second;
+            encodedPostBody += "&";
+        }
+        return encodedPostBody.erase(encodedPostBody.length() - 1);
+    }
+
+    inline std::string httpRequest(std::string url, std::string requestType = "GET", std::string postData = "") {
         CURL* curl;
         CURLcode res;
         std::string buf;
@@ -88,6 +108,10 @@ namespace utils {
         curl = curl_easy_init();
         if (curl) {
             curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, requestType.c_str());
+            if (requestType != "GET" && requestType != "DELETE" && postData.length() > 0)
+                curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
+
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCallback);
             curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
@@ -100,7 +124,7 @@ namespace utils {
 
     inline std::string getArtworkURL(std::string query) {
         std::string response =
-            getRequest("https://itunes.apple.com/search?media=music&entity=song&term=" + urlEncode(query));
+            httpRequest("https://itunes.apple.com/search?media=music&entity=song&term=" + urlEncode(query));
         nlohmann::json j = nlohmann::json::parse(response);
         auto results = j["results"];
         if (results.size() > 0) {
@@ -108,6 +132,7 @@ namespace utils {
         }
         return "";
     }
+
     inline void saveSettings(const App* newApp) {
         nlohmann::json j;
 
@@ -162,6 +187,12 @@ namespace utils {
         j["autostart"] = settings.autoStart;
         j["any_other"] = settings.anyOtherEnabled;
 
+        j["lastfm"]["enabled"] = settings.lastfm.enabled;
+        j["lastfm"]["api_key"] = settings.lastfm.api_key;
+        j["lastfm"]["api_secret"] = settings.lastfm.api_secret;
+        j["lastfm"]["username"] = settings.lastfm.username;
+        j["lastfm"]["password"] = settings.lastfm.password;
+
         for (const auto& app : settings.apps) {
             nlohmann::json appJson;
             appJson["name"] = app.appName;
@@ -196,6 +227,15 @@ namespace utils {
             ret.autoStart = j.value("autostart", false);
             ret.anyOtherEnabled = j.value("any_other", false);
 
+            if (j.contains("lastfm")) {
+                auto lastfm = j["lastfm"];
+                ret.lastfm.enabled = lastfm.value("enabled", false);
+                ret.lastfm.api_key = lastfm.value("api_key", "");
+                ret.lastfm.api_secret = lastfm.value("api_secret", "");
+                ret.lastfm.username = lastfm.value("username", "");
+                ret.lastfm.password = lastfm.value("password", "");
+            }
+
             for (const auto& app : j["apps"]) {
                 App a;
                 a.appName = app.value("name", "");
@@ -207,7 +247,8 @@ namespace utils {
 
                 ret.apps.push_back(a);
             }
-        } catch (const nlohmann::json::parse_error&) {}
+        } catch (const nlohmann::json::parse_error&) {
+        }
         return ret;
     }
 
