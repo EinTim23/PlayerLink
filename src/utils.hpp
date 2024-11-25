@@ -90,11 +90,14 @@ namespace utils {
     }
 
     inline std::string getURLEncodedPostBody(const std::map<std::string, std::string>& parameters) {
+        if (parameters.empty())
+            return "";
+
         std::string encodedPostBody = "";
         for (const auto& parameter : parameters) {
             encodedPostBody += parameter.first;
             encodedPostBody += "=";
-            encodedPostBody += parameter.second;
+            encodedPostBody += urlEncode(parameter.second);
             encodedPostBody += "&";
         }
         return encodedPostBody.erase(encodedPostBody.length() - 1);

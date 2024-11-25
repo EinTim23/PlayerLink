@@ -16,6 +16,7 @@
 std::string lastPlayingSong = "";
 std::string lastMediaSource = "";
 std::string currentSongTitle = "";
+LastFM* lastfm = nullptr;
 
 void handleRPCTasks() {
     while (true) {
@@ -37,16 +38,23 @@ void handleRPCTasks() {
     }
 }
 
-void handleMediaTasks() {
+void initLastFM(bool checkMode = false) {
+    if (lastfm)
+        delete lastfm;
     auto settings = utils::getSettings();
-    LastFM lastfm(settings.lastfm.username, settings.lastfm.password, settings.lastfm.api_key,
-                  settings.lastfm.api_secret);
-    if (settings.lastfm.enabled) {
-        LastFM::LASTFM_STATUS status = lastfm.authenticate();
-        if (status)
-            wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
-    }
+    if (!settings.lastfm.enabled && !checkMode)
+        return;
+    lastfm = new LastFM(settings.lastfm.username, settings.lastfm.password, settings.lastfm.api_key,
+                        settings.lastfm.api_secret);
+    LastFM::LASTFM_STATUS status = lastfm->authenticate();
+    if (status)
+        wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
+    else if (checkMode)
+        wxMessageBox(_("The LastFM authentication was successful."), _("PlayerLink"), wxOK | wxICON_INFORMATION);
+}
 
+void handleMediaTasks() {
+    initLastFM();
     int64_t lastMs = 0;
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -76,8 +84,9 @@ void handleMediaTasks() {
             continue;
 
         if (lastPlayingSong.find(mediaInformation->songTitle + mediaInformation->songArtist +
-                                 mediaInformation->songAlbum) == std::string::npos)
-            lastfm.scrobble(mediaInformation->songArtist, mediaInformation->songTitle);
+                                 mediaInformation->songAlbum) == std::string::npos &&
+            lastfm)
+            lastfm->scrobble(mediaInformation->songArtist, mediaInformation->songTitle);
 
         lastPlayingSong = currentlyPlayingSong;
         currentSongTitle = mediaInformation->songArtist + " - " + mediaInformation->songTitle;
@@ -166,16 +175,46 @@ private:
     wxFrame* settingsFrame;
 };
 
-class PlayerLinkFrame : public wxFrame {
-protected:
-    wxStaticText* settingsText;
-    wxStaticLine* settingsDivider;
-    wxStaticText* enabledAppsText;
-    wxCheckBox* anyOtherCheckbox;
-    wxStaticLine* appsDivider;
-    wxStaticText* startupText;
-    wxCheckBox* autostartCheckbox;
+class wxTextCtrlWithPlaceholder : public wxTextCtrl {
+public:
+    wxTextCtrlWithPlaceholder(wxWindow* parent, wxWindowID id, const wxString& value,
+                              const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
+                              long style = 0, const wxValidator& validator = wxDefaultValidator,
+                              const wxString& name = "textCtrl")
+        : wxTextCtrl(parent, id, value, pos, size, style, validator, name), placeholder(""), showPlaceholder(true) {
+        Bind(wxEVT_SET_FOCUS, &wxTextCtrlWithPlaceholder::OnFocus, this);
+        Bind(wxEVT_KILL_FOCUS, &wxTextCtrlWithPlaceholder::OnBlur, this);
+    }
 
+    void SetPlaceholderText(const wxString& p) {
+        placeholder = p;
+        SetValue(placeholder);
+        Refresh();
+    }
+
+protected:
+    void OnFocus(wxFocusEvent& event) {
+        if (GetValue() == placeholder)
+            Clear();
+
+        showPlaceholder = false;
+        event.Skip();
+    }
+
+    void OnBlur(wxFocusEvent& event) {
+        if (GetValue().IsEmpty() || GetValue() == "") {
+            SetValue(placeholder);
+            showPlaceholder = true;
+        }
+        event.Skip();
+    }
+
+private:
+    wxString placeholder;
+    bool showPlaceholder;
+};
+
+class PlayerLinkFrame : public wxFrame {
 public:
     PlayerLinkFrame(wxWindow* parent, wxIcon& icon, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(300, 200),
@@ -184,20 +223,22 @@ public:
         this->SetSizeHints(wxDefaultSize, wxDefaultSize);
         this->SetIcon(icon);
 
-        wxBoxSizer* mainContainer;
-        mainContainer = new wxBoxSizer(wxVERTICAL);
-
-        settingsText = new wxStaticText(this, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
+        auto mainContainer = new wxBoxSizer(wxVERTICAL);
+        // header start
+        auto settingsText = new wxStaticText(this, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
         settingsText->Wrap(-1);
         mainContainer->Add(settingsText, 0, wxALIGN_CENTER | wxALL, 5);
+        // header end
 
-        settingsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        // enabled apps start
+        auto settingsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
         mainContainer->Add(settingsDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* enabledAppsContainer;
         enabledAppsContainer = new wxBoxSizer(wxHORIZONTAL);
 
-        enabledAppsText = new wxStaticText(this, wxID_ANY, _("Enabled Apps:"), wxDefaultPosition, wxDefaultSize, 0);
+        auto enabledAppsText =
+            new wxStaticText(this, wxID_ANY, _("Enabled Apps:"), wxDefaultPosition, wxDefaultSize, 0);
         enabledAppsText->Wrap(-1);
         enabledAppsContainer->Add(enabledAppsText, 0, wxALL, 5);
 
@@ -222,10 +263,10 @@ public:
             appCheckboxContainer->Add(checkbox, 0, wxALL, 5);
         }
 
-        anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
+        auto anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
         anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
-        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& event) {
-            bool isChecked = this->anyOtherCheckbox->IsChecked();
+        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
+            bool isChecked = anyOtherCheckbox->IsChecked();
             auto settings = utils::getSettings();
             settings.anyOtherEnabled = isChecked;
             utils::saveSettings(settings);
@@ -236,21 +277,102 @@ public:
         enabledAppsContainer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
 
         mainContainer->Add(enabledAppsContainer, 0, 0, 5);
+        // enabled apps end
 
-        appsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        // LastFM start
+        auto lastfmDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        mainContainer->Add(lastfmDivider, 0, wxEXPAND | wxALL, 5);
+
+        wxBoxSizer* lastFMContainer;
+        lastFMContainer = new wxBoxSizer(wxHORIZONTAL);
+
+        auto lastfmText = new wxStaticText(this, wxID_ANY, _("LastFM:"), wxDefaultPosition, wxDefaultSize, 0);
+        lastfmText->Wrap(-1);
+        lastFMContainer->Add(lastfmText, 0, wxALL, 5);
+
+        wxBoxSizer* lastfmSettingsContainer;
+        lastfmSettingsContainer = new wxBoxSizer(wxVERTICAL);
+
+        auto lastfmEnabledCheckbox = new wxCheckBox(this, wxID_ANY, _("Enabled"), wxDefaultPosition, wxDefaultSize, 0);
+        lastfmEnabledCheckbox->SetValue(settings.lastfm.enabled);
+        lastfmEnabledCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
+            bool isChecked = lastfmEnabledCheckbox->IsChecked();
+            auto settings = utils::getSettings();
+            settings.lastfm.enabled = isChecked;
+            utils::saveSettings(settings);
+        });
+        lastfmSettingsContainer->Add(lastfmEnabledCheckbox, 0, wxALIGN_CENTER | wxALL, 5);
+        lastFMContainer->Add(lastfmSettingsContainer, 1, wxEXPAND, 5);
+
+        auto usernameInput =
+            new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+        usernameInput->SetPlaceholderText(_("Username"));
+        usernameInput->SetValue(settings.lastfm.username);
+        usernameInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+            auto settings = utils::getSettings();
+            std::string data = event.GetString().ToStdString();
+            settings.lastfm.username = data;
+            utils::saveSettings(settings);
+        });
+        auto passwordInput = new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                                           wxDefaultSize, wxTE_PASSWORD);
+        passwordInput->SetPlaceholderText(_("Password"));
+        passwordInput->SetValue(settings.lastfm.password);
+        passwordInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+            auto settings = utils::getSettings();
+            std::string data = event.GetString().ToStdString();
+            settings.lastfm.password = data;
+            utils::saveSettings(settings);
+        });
+        auto apikeyInput =
+            new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+        apikeyInput->SetPlaceholderText(_("API-Key"));
+        apikeyInput->SetValue(settings.lastfm.api_key);
+        apikeyInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+            auto settings = utils::getSettings();
+            std::string data = event.GetString().ToStdString();
+            settings.lastfm.api_key = data;
+            utils::saveSettings(settings);
+        });
+        auto apisecretInput = new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                                            wxDefaultSize, wxTE_PASSWORD);
+        apisecretInput->SetPlaceholderText(_("API-Secret"));
+        apisecretInput->SetValue(settings.lastfm.api_secret);
+        apisecretInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
+            auto settings = utils::getSettings();
+            std::string data = event.GetString().ToStdString();
+            settings.lastfm.api_secret = data;
+            utils::saveSettings(settings);
+        });
+
+        auto checkButton = new wxButton(this, wxID_ANY, _("Check credentials"));
+        checkButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) { initLastFM(true); });
+        mainContainer->Add(lastFMContainer, 0, 0, 5);
+
+        mainContainer->Add(usernameInput, 0, wxEXPAND | wxALL, 5);
+        mainContainer->Add(passwordInput, 0, wxEXPAND | wxALL, 5);
+        mainContainer->Add(apikeyInput, 0, wxEXPAND | wxALL, 5);
+        mainContainer->Add(apisecretInput, 0, wxEXPAND | wxALL, 5);
+        mainContainer->Add(checkButton, 0, wxEXPAND | wxALL, 10);
+
+        // Last FM End
+
+        // settings start
+        auto appsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
         mainContainer->Add(appsDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* settingsContainer;
         settingsContainer = new wxBoxSizer(wxHORIZONTAL);
 
-        startupText = new wxStaticText(this, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
+        auto startupText = new wxStaticText(this, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
         startupText->Wrap(-1);
         settingsContainer->Add(startupText, 0, wxALL, 5);
 
-        autostartCheckbox = new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
+        auto autostartCheckbox =
+            new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
         autostartCheckbox->SetValue(settings.autoStart);
-        autostartCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent& event) {
-            bool isChecked = this->autostartCheckbox->IsChecked();
+        autostartCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
+            bool isChecked = autostartCheckbox->IsChecked();
             auto settings = utils::getSettings();
             settings.autoStart = isChecked;
             backend::toggleAutostart(isChecked);
@@ -259,7 +381,7 @@ public:
 
         settingsContainer->Add(autostartCheckbox, 0, wxALL, 5);
         mainContainer->Add(settingsContainer, 0, wxEXPAND, 5);
-
+        // settings end
         this->SetSizerAndFit(mainContainer);
 
         wxSize currentSize = this->GetSize();

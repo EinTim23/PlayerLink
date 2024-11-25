@@ -65,10 +65,6 @@ public:
 
         parameters["api_sig"] = getApiSignature(parameters);
 
-        // if you url encode the parameters before making the signature, the signature will be invalid. But url encoding
-        // is needed to properly handle non ascii characters. Notice to myself: The last fm api is horrible.
-        parameters["artist"] = utils::urlEncode(artist);
-        parameters["track"] = utils::urlEncode(track);
         std::string postBody = utils::getURLEncodedPostBody(parameters);
         std::string response = utils::httpRequest(api_base, "POST", postBody);
 
