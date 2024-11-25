@@ -265,8 +265,8 @@ public:
 
         auto anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
         anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
-        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
-            bool isChecked = anyOtherCheckbox->IsChecked();
+        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
+            bool isChecked = event.IsChecked();
             auto settings = utils::getSettings();
             settings.anyOtherEnabled = isChecked;
             utils::saveSettings(settings);
@@ -295,8 +295,8 @@ public:
 
         auto lastfmEnabledCheckbox = new wxCheckBox(this, wxID_ANY, _("Enabled"), wxDefaultPosition, wxDefaultSize, 0);
         lastfmEnabledCheckbox->SetValue(settings.lastfm.enabled);
-        lastfmEnabledCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
-            bool isChecked = lastfmEnabledCheckbox->IsChecked();
+        lastfmEnabledCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
+            bool isChecked = event.IsChecked();
             auto settings = utils::getSettings();
             settings.lastfm.enabled = isChecked;
             utils::saveSettings(settings);
@@ -371,8 +371,8 @@ public:
         auto autostartCheckbox =
             new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
         autostartCheckbox->SetValue(settings.autoStart);
-        autostartCheckbox->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent& event) {
-            bool isChecked = autostartCheckbox->IsChecked();
+        autostartCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
+            bool isChecked = event.IsChecked();
             auto settings = utils::getSettings();
             settings.autoStart = isChecked;
             backend::toggleAutostart(isChecked);
