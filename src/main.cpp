@@ -147,7 +147,10 @@ class PlayerLinkIcon : public wxTaskBarIcon {
 public:
     PlayerLinkIcon(wxFrame* s) : settingsFrame(s) {}
 
-    void OnMenuOpen(wxCommandEvent& evt) { settingsFrame->Show(true); }
+    void OnMenuOpen(wxCommandEvent& evt) {
+        settingsFrame->Show(true);
+        settingsFrame->Raise();
+    }
 
     void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
 
@@ -248,7 +251,7 @@ public:
         auto settings = utils::getSettings();
 
         for (auto app : settings.apps) {
-            auto checkbox = new wxCheckBox(this, wxID_ANY, _(app.appName), wxDefaultPosition, wxDefaultSize, 0);
+            auto checkbox = new wxCheckBox(this, wxID_ANY, app.appName, wxDefaultPosition, wxDefaultSize, 0);
             checkbox->SetValue(app.enabled);
             checkbox->SetClientData(new utils::App(app));
             checkbox->Bind(wxEVT_CHECKBOX, [checkbox](wxCommandEvent& event) {

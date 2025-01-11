@@ -21,11 +21,19 @@ using namespace winrt;
 using namespace Windows::Media::Control;
 using namespace Windows::Storage::Streams;
 #define EM_DASH "\xE2\x80\x94"
-// codecvt is deprecated, but there is no good portable way to do this, I could technically use the winapi as this is
-// the windows backend tho
-std::string toStdString(winrt::hstring in) {
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-    return converter.to_bytes(in.c_str());
+
+std::string toStdString(winrt::hstring& in) {
+    const wchar_t* wideStr = in.c_str();
+    int wideStrLen = static_cast<int>(in.size());
+    int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wideStr, wideStrLen, nullptr, 0, nullptr, nullptr);
+    if (bufferSize <= 0)
+        return "";
+
+    std::string result(bufferSize, 0);
+
+    WideCharToMultiByte(CP_UTF8, 0, wideStr, wideStrLen, result.data(), bufferSize, nullptr, nullptr);
+
+    return result;
 }
 
 std::string getAppModelIdOfProcess(HANDLE hProc) {
@@ -43,7 +51,8 @@ std::string getAppModelIdOfProcess(HANDLE hProc) {
         free(fullName);
         return "";
     }
-    std::string name = toStdString(fullName);
+    winrt::hstring wideName = fullName;
+    std::string name = toStdString(wideName);
     free(fullName);
     return name;
 }
@@ -63,7 +72,7 @@ std::string getProcessNameFromAppModelId(std::string appModelId) {
         HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processID);
         if (hProcess) {
             std::string modelid = getAppModelIdOfProcess(hProcess);
-            
+
             if (modelid != appModelId) {
                 CloseHandle(hProcess);
                 continue;
@@ -131,7 +140,7 @@ bool backend::toggleAutostart(bool enabled) {
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    auto sessionManager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
+    static auto sessionManager = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
     auto currentSession = sessionManager.GetCurrentSession();
     if (!currentSession)
         return nullptr;
@@ -186,7 +195,8 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
 
     return std::make_shared<MediaInfo>(
         playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused,
-        toStdString(mediaProperties.Title()), artist, albumName, modelId, thumbnailData, endTime, elapsedTime);
+        toStdString(mediaProperties.Title()), std::move(artist), std::move(albumName), std::move(modelId),
+        std::move(thumbnailData), endTime, elapsedTime);
 }
 
 bool backend::init() {
