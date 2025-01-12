@@ -50,14 +50,15 @@ jobs:
 
     - name: Download linuxdeploy
       run: |
-        wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-        chmod +x linuxdeploy-x86_64.AppImage
+        wget "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
+        wget "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+        chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh
         sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
 
     - name: Create AppImage
       run: |
         cp -r build/PlayerLink linux/AppDir/usr/bin/  
-        linuxdeploy --appdir=linux/AppDir --output appimage
+        linuxdeploy --appdir=linux/AppDir --plugin gtk --output appimage
 
     - name: Upload AppImage artifact
       uses: actions/upload-artifact@v4
@@ -126,35 +127,53 @@ jobs:
         path: PlayerLink.dmg
 
   create-release:
+    if: startsWith(github.ref, 'refs/tags/')
     needs: [build-linux, build-windows, build-macos]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
-    - name: Download AppImage artifact
+    - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
-        name: PlayerLink-AppImage
         path: ./release-assets
-
-    - name: Download Windows artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: PlayerLink-Windows-Executable
-        path: ./release-assets
-
-    - name: Download macOS DMG artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: PlayerLink-macOS-DMG
-        path: ./release-assets
-
+        merge-multiple: true
+    - name: Display structure of downloaded files
+      run: ls -R ./release-assets
     - name: Create GitHub Release
       uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
         release_name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
-        files: |
-          ./release-assets/*.AppImage
-          ./release-assets/*.exe
-          ./release-assets/*.dmg
+    - name: Upload AppImage
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-assets/PlayerLink-x86_64.AppImage
+        asset_name: PlayerLink-x86_64.AppImage
+        asset_content_type: application/octet-stream
+
+    - name: Upload Windows Executable
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-assets/PlayerLink.exe
+        asset_name: PlayerLink.exe
+        asset_content_type: application/octet-stream
+
+    - name: Upload macOS DMG
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-assets/PlayerLink.dmg
+        asset_name: PlayerLink.dmg
+        asset_content_type: application/octet-stream

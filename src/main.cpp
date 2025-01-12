@@ -184,30 +184,37 @@ public:
                               const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
                               long style = 0, const wxValidator& validator = wxDefaultValidator,
                               const wxString& name = "textCtrl")
-        : wxTextCtrl(parent, id, value, pos, size, style, validator, name), placeholder(""), showPlaceholder(true) {
+        : wxTextCtrl(parent, id, value, pos, size, style, validator, name), 
+          placeholder(""), 
+          showPlaceholder(true), 
+          isPassword((style & wxTE_PASSWORD) != 0) {
+
         Bind(wxEVT_SET_FOCUS, &wxTextCtrlWithPlaceholder::OnFocus, this);
         Bind(wxEVT_KILL_FOCUS, &wxTextCtrlWithPlaceholder::OnBlur, this);
     }
 
     void SetPlaceholderText(const wxString& p) {
         placeholder = p;
-        SetValue(placeholder);
-        Refresh();
+        if (GetValue().IsEmpty() || showPlaceholder) 
+            UpdatePlaceholder();
     }
 
 protected:
     void OnFocus(wxFocusEvent& event) {
-        if (GetValue() == placeholder)
+        if (showPlaceholder && GetValue() == placeholder) {
             Clear();
+            if (isPassword) 
+                SetStyleToPassword();
+        }
 
         showPlaceholder = false;
         event.Skip();
     }
 
     void OnBlur(wxFocusEvent& event) {
-        if (GetValue().IsEmpty() || GetValue() == "") {
-            SetValue(placeholder);
+        if (GetValue().IsEmpty()) {
             showPlaceholder = true;
+            UpdatePlaceholder();
         }
         event.Skip();
     }
@@ -215,6 +222,21 @@ protected:
 private:
     wxString placeholder;
     bool showPlaceholder;
+    bool isPassword;
+
+    void UpdatePlaceholder() {
+        if (isPassword) 
+            SetStyleToNormal();
+        SetValue(placeholder);
+    }
+
+    void SetStyleToPassword() {
+        SetWindowStyle(GetWindowStyle() | wxTE_PASSWORD);
+    }
+
+    void SetStyleToNormal() {
+        SetWindowStyle(GetWindowStyle() & ~wxTE_PASSWORD);
+    }
 };
 
 class PlayerLinkFrame : public wxFrame {
