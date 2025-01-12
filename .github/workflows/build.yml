@@ -1,4 +1,4 @@
-name: Build and Package AppImage and Windows Executable
+name: Build and Package AppImage, Windows Executable, and macOS DMG
 
 on:
   push:
@@ -89,3 +89,36 @@ jobs:
       with:
         name: PlayerLink-Windows-Executable
         path: build/Release/*
+
+  build-macos:
+    runs-on: macos-15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.22.0'
+
+    - name: Configure with CMake
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build the project
+      run: cmake --build build --config Release
+
+    - name: Create DMG package
+      run: |
+        mkdir -p dmg/PlayerLink
+        cp -r build/PlayerLink.app dmg/PlayerLink/
+        hdiutil create -volname "PlayerLink" -srcfolder dmg/PlayerLink -ov -format UDZO PlayerLink.dmg
+
+    - name: Upload macOS DMG artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PlayerLink-macOS-DMG
+        path: PlayerLink.dmg
