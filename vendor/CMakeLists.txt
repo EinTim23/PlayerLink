@@ -11,9 +11,10 @@ SET(BUILD_STATIC_LIBS ON)
 SET(BUILD_SHARED_LIBS OFF)
 SET(BUILD_CURL_EXE OFF)
 SET(MBEDTLS_INCLUDE_DIRS ../mbedtls/include)
-file(REMOVE curl/CMake/FindMbedTLS.cmake) #replace curls FindMbedTLS that expects mbedtls to be prebuilt with a dummy
+file(RENAME curl/CMake/FindMbedTLS.cmake curl/CMake/FindMbedTLS.cmake.bak) #replace curls FindMbedTLS that expects mbedtls to be prebuilt with a dummy
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dummy ${CMAKE_MODULE_PATH})
 add_subdirectory("curl")
+file(RENAME curl/CMake/FindMbedTLS.cmake.bak curl/CMake/FindMbedTLS.cmake)
 set(wxBUILD_SHARED OFF)
 set(wxBUILD_MONOLITHIC ON)
 set(wxUSE_GUI ON)

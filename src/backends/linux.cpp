@@ -12,6 +12,9 @@
 DBusConnection* conn = nullptr;
 
 std::string getExecutablePath() {
+    if (const char* appImagePath = std::getenv("APPIMAGE")) 
+        return std::string(appImagePath);
+
     char result[PATH_MAX]{};
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
     return (count != -1) ? std::string(result, count) : std::string();
