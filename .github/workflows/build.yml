@@ -1,4 +1,4 @@
-name: Build and Package AppImage
+name: Build and Package AppImage and Windows Executable
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-linux:
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout code
@@ -58,7 +58,34 @@ jobs:
         linuxdeploy --appdir=linux/AppDir --output appimage
 
     - name: Upload AppImage artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: PlayerLink-AppImage  
         path: ./*.AppImage    
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.22.0'
+
+    - name: Configure with CMake
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build the project
+      run: cmake --build build --config Release
+
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PlayerLink-Windows-Executable
+        path: build/Release/*

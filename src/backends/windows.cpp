@@ -11,7 +11,6 @@
 #include <winrt/windows.storage.streams.h>
 
 #include <chrono>
-#include <codecvt>
 #include <filesystem>
 
 #include "../backend.hpp"
