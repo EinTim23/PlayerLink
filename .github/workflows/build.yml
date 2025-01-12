@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
 
 jobs:
@@ -122,3 +124,37 @@ jobs:
       with:
         name: PlayerLink-macOS-DMG
         path: PlayerLink.dmg
+
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Download AppImage artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PlayerLink-AppImage
+        path: ./release-assets
+
+    - name: Download Windows artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PlayerLink-Windows-Executable
+        path: ./release-assets
+
+    - name: Download macOS DMG artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: PlayerLink-macOS-DMG
+        path: ./release-assets
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        files: |
+          ./release-assets/*.AppImage
+          ./release-assets/*.exe
+          ./release-assets/*.dmg
