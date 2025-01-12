@@ -4,3 +4,9 @@ build/*
 src/rsrc.hpp
 PlayerLink.exe
 .vscode/*
+linux/AppDir/usr/share/doc/*
+linux/AppDir/usr/lib/*
+linux/AppDir/usr/bin/*
+linux/AppDir/*
+!linux/AppDir/usr
+!.gitkeep
