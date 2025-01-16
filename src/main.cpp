@@ -16,6 +16,7 @@
 std::string lastPlayingSong = "";
 std::string lastMediaSource = "";
 std::string currentSongTitle = "";
+utils::SongInfo songInfo;
 LastFM* lastfm = nullptr;
 
 void handleRPCTasks() {
@@ -59,6 +60,7 @@ void handleMediaTasks() {
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         auto mediaInformation = backend::getMediaInformation();
+        auto settings = utils::getSettings();
         if (!mediaInformation) {
             currentSongTitle = "";
             Discord_ClearPresence();  // Nothing is playing rn, clear presence
@@ -112,15 +114,15 @@ void handleMediaTasks() {
         activity.details = mediaInformation->songTitle.c_str();
         activity.state = activityState.c_str();
         activity.smallImageText = serviceName.c_str();
-        std::string artworkURL = utils::getArtworkURL(mediaInformation->songTitle + " " + mediaInformation->songArtist +
-                                                      " " + mediaInformation->songAlbum);
+        songInfo = utils::getSongInfo(mediaInformation->songTitle + " " + mediaInformation->songArtist + " " +
+                                      mediaInformation->songAlbum);
 
         activity.smallImageKey = "appicon";
-        if (artworkURL == "") {
+        if (songInfo.artworkURL == "") {
             activity.smallImageKey = "";
             activity.largeImageKey = "appicon";
         } else {
-            activity.largeImageKey = artworkURL.c_str();
+            activity.largeImageKey = songInfo.artworkURL.c_str();
         }
         activity.largeImageText = mediaInformation->songAlbum.c_str();
 
@@ -140,6 +142,12 @@ void handleMediaTasks() {
             activity.button1link = buttonText.c_str();
         }
 
+        std::string odesliUrl = utils::getOdesliURL(songInfo);
+        if(settings.odesli && songInfo.artworkURL != "") {
+            activity.button2name = "Show on Song.link";
+            activity.button2link = odesliUrl.c_str();
+        }
+
         Discord_UpdatePresence(&activity);
     }
 }
@@ -151,6 +159,8 @@ public:
         settingsFrame->Show(true);
         settingsFrame->Raise();
     }
+
+    void OnCopyOdesliURL(wxCommandEvent& evt) { utils::copyToClipboard(utils::getOdesliURL(songInfo)); }
 
     void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
 
@@ -164,10 +174,14 @@ protected:
         menu->Append(10004, currentSongTitle == "" ? _("Not Playing") : wxString::FromUTF8(currentSongTitle));
         menu->Enable(10004, false);
         menu->AppendSeparator();
+        menu->Append(10005, _("Copy Odesli URL"));
+        if (songInfo.artworkURL == "" || currentSongTitle == "")
+            menu->Enable(10005, false);
         menu->Append(10001, _("Settings"));
         menu->Append(10003, _("About PlayerLink"));
         menu->AppendSeparator();
         menu->Append(10002, _("Quit PlayerLink..."));
+        Bind(wxEVT_MENU, &PlayerLinkIcon::OnCopyOdesliURL, this, 10005);
         Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuOpen, this, 10001);
         Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuExit, this, 10002);
         Bind(wxEVT_MENU, &PlayerLinkIcon::OnMenuAbout, this, 10003);
@@ -184,18 +198,17 @@ public:
                               const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
                               long style = 0, const wxValidator& validator = wxDefaultValidator,
                               const wxString& name = "textCtrl")
-        : wxTextCtrl(parent, id, value, pos, size, style, validator, name), 
-          placeholder(""), 
-          showPlaceholder(true), 
+        : wxTextCtrl(parent, id, value, pos, size, style, validator, name),
+          placeholder(""),
+          showPlaceholder(true),
           isPassword((style & wxTE_PASSWORD) != 0) {
-
         Bind(wxEVT_SET_FOCUS, &wxTextCtrlWithPlaceholder::OnFocus, this);
         Bind(wxEVT_KILL_FOCUS, &wxTextCtrlWithPlaceholder::OnBlur, this);
     }
 
     void SetPlaceholderText(const wxString& p) {
         placeholder = p;
-        if (GetValue().IsEmpty() || showPlaceholder) 
+        if (GetValue().IsEmpty() || showPlaceholder)
             UpdatePlaceholder();
     }
 
@@ -203,7 +216,7 @@ protected:
     void OnFocus(wxFocusEvent& event) {
         if (showPlaceholder && GetValue() == placeholder) {
             Clear();
-            if (isPassword) 
+            if (isPassword)
                 SetStyleToPassword();
         }
 
@@ -225,18 +238,14 @@ private:
     bool isPassword;
 
     void UpdatePlaceholder() {
-        if (isPassword) 
+        if (isPassword)
             SetStyleToNormal();
         SetValue(placeholder);
     }
 
-    void SetStyleToPassword() {
-        SetWindowStyle(GetWindowStyle() | wxTE_PASSWORD);
-    }
+    void SetStyleToPassword() { SetWindowStyle(GetWindowStyle() | wxTE_PASSWORD); }
 
-    void SetStyleToNormal() {
-        SetWindowStyle(GetWindowStyle() & ~wxTE_PASSWORD);
-    }
+    void SetStyleToNormal() { SetWindowStyle(GetWindowStyle() & ~wxTE_PASSWORD); }
 };
 
 class PlayerLinkFrame : public wxFrame {
@@ -387,11 +396,14 @@ public:
         mainContainer->Add(appsDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* settingsContainer;
-        settingsContainer = new wxBoxSizer(wxHORIZONTAL);
+        settingsContainer = new wxBoxSizer(wxVERTICAL);
+
+        wxBoxSizer* startupContainer;
+        startupContainer = new wxBoxSizer(wxHORIZONTAL);
 
         auto startupText = new wxStaticText(this, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
         startupText->Wrap(-1);
-        settingsContainer->Add(startupText, 0, wxALL, 5);
+        startupContainer->Add(startupText, 0, wxALL, 5);
 
         auto autostartCheckbox =
             new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
@@ -404,8 +416,21 @@ public:
             utils::saveSettings(settings);
         });
 
+        auto odesliCheckbox =
+            new wxCheckBox(this, wxID_ANY, _("Odesli integration"), wxDefaultPosition, wxDefaultSize, 0);
+        odesliCheckbox->SetValue(settings.odesli);
+        odesliCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
+            bool isChecked = event.IsChecked();
+            auto settings = utils::getSettings();
+            settings.odesli = isChecked;
+            utils::saveSettings(settings);
+        });
+
         settingsContainer->Add(autostartCheckbox, 0, wxALL, 5);
-        mainContainer->Add(settingsContainer, 0, wxEXPAND, 5);
+        settingsContainer->Add(odesliCheckbox, 0, wxALL, 5);
+        startupContainer->Add(settingsContainer);
+        mainContainer->Add(startupContainer, 0, wxEXPAND, 5);
+
         // settings end
         this->SetSizerAndFit(mainContainer);
 

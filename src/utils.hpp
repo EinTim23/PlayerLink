@@ -3,6 +3,7 @@
 #include <curl/include/curl/curl.h>
 #include <wx/mstream.h>
 #include <wx/wx.h>
+#include <wx/clipbrd.h>
 
 #include <filesystem>
 #include <fstream>
@@ -35,11 +36,25 @@ namespace utils {
     };
 
     struct Settings {
+        bool odesli;
         bool autoStart;
         bool anyOtherEnabled;
         LastFMSettings lastfm;
         std::vector<App> apps;
     };
+
+    struct SongInfo {
+        std::string artworkURL;
+        int64_t trackId;
+    };
+
+    inline void copyToClipboard(const wxString& text) {
+        if (wxTheClipboard->Open()) {
+            wxTheClipboard->Clear();
+            wxTheClipboard->SetData(new wxTextDataObject(text));
+            wxTheClipboard->Close();
+        }
+    }
 
     inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size) {
         wxMemoryInputStream stream(data, size);
@@ -125,17 +140,23 @@ namespace utils {
         return buf;
     }
 
-    inline std::string getArtworkURL(std::string query) {
+    inline SongInfo getSongInfo(std::string query) {
+        SongInfo ret{};
         std::string response =
             httpRequest("https://itunes.apple.com/search?media=music&entity=song&term=" + urlEncode(query));
         nlohmann::json j = nlohmann::json::parse(response);
         auto results = j["results"];
         if (results.size() > 0) {
-            return results[0]["artworkUrl100"].get<std::string>();
+            ret.artworkURL = results[0]["artworkUrl100"].get<std::string>();
+            ret.trackId = results[0]["trackId"].get<int64_t>();
         }
-        return "";
+        return ret;
     }
 
+    inline std::string getOdesliURL(SongInfo& song) {
+        return std::string("https://song.link/i/" + std::to_string(song.trackId));
+    }
+    
     inline void saveSettings(const App* newApp) {
         nlohmann::json j;
 
@@ -189,6 +210,7 @@ namespace utils {
         nlohmann::json j;
         j["autostart"] = settings.autoStart;
         j["any_other"] = settings.anyOtherEnabled;
+        j["odesli"] = settings.odesli;
 
         j["lastfm"]["enabled"] = settings.lastfm.enabled;
         j["lastfm"]["api_key"] = settings.lastfm.api_key;
@@ -218,6 +240,7 @@ namespace utils {
         if (!std::filesystem::exists(CONFIG_FILENAME)) {
             ret.anyOtherEnabled = true;
             ret.autoStart = false;
+            ret.odesli = false;
             saveSettings(ret);
             return ret;
         }
@@ -229,6 +252,7 @@ namespace utils {
 
             ret.autoStart = j.value("autostart", false);
             ret.anyOtherEnabled = j.value("any_other", false);
+            ret.odesli = j.value("odesli", false);
 
             if (j.contains("lastfm")) {
                 auto lastfm = j["lastfm"];
