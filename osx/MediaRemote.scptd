@@ -1,0 +1,30 @@
+use framework "Foundation"
+try
+	set MediaRemote to current application's NSBundle's bundleWithPath:"/System/Library/PrivateFrameworks/MediaRemote.framework/"
+	MediaRemote's load()
+	
+	set MRNowPlayingRequest to current application's NSClassFromString("MRNowPlayingRequest")
+	set bundleID to MRNowPlayingRequest's localNowPlayingPlayerPath()'s client()'s bundleIdentifier()
+	set info to MRNowPlayingRequest's localNowPlayingItem()'s nowPlayingInfo()
+	set title to info's valueForKey:"kMRMediaRemoteNowPlayingInfoTitle"
+	set album to info's valueForKey:"kMRMediaRemoteNowPlayingInfoAlbum"
+	set artist to info's valueForKey:"kMRMediaRemoteNowPlayingInfoArtist"
+	set duration to info's valueForKey:"kMRMediaRemoteNowPlayingInfoDuration"
+	set playbackStatus to info's valueForKey:"kMRMediaRemoteNowPlayingInfoPlaybackRate"
+	set elapsed to info's valueForKey:"kMRMediaRemoteNowPlayingInfoElapsedTime"
+	
+	set jsonString to "{"
+	set jsonString to jsonString & "\"title\": \"" & title & "\", "
+	set jsonString to jsonString & "\"album\": \"" & album & "\", "
+	set jsonString to jsonString & "\"artist\": \"" & artist & "\", "
+	set jsonString to jsonString & "\"duration\": \"" & duration & "\", "
+	set jsonString to jsonString & "\"playbackStatus\": \"" & playbackStatus & "\", "
+	set jsonString to jsonString & "\"elapsed\": \"" & elapsed & "\","
+	set jsonString to jsonString & "\"player\": \"" & bundleID & "\""
+	set jsonString to jsonString & "}"
+	return jsonString
+on error
+	set jsonString to "{\"player\": \"none\"}"
+	return jsonString
+end try
+

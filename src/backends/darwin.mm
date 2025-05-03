@@ -1,12 +1,13 @@
+#include <Foundation/NSObjCRuntime.h>
 #ifdef __APPLE__
 #include <AppKit/AppKit.h>
 #include <Cocoa/Cocoa.h>
 #include <Foundation/Foundation.h>
 #include <dispatch/dispatch.h>
 #include <filesystem>
+#include <nlohmann-json/single_include/nlohmann/json.hpp>
 #include <fstream>
 
-#include "../MediaRemote.hpp"
 #include "../backend.hpp"
 
 void hideDockIcon(bool shouldHide) {
@@ -16,64 +17,55 @@ void hideDockIcon(bool shouldHide) {
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 }
 
+NSString* getFilePathFromBundle(NSString* fileName, NSString* fileType) {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:fileName ofType:fileType];
+    return filePath;
+}
+
+NSString* executeCommand(NSString* command, NSArray* arguments) {
+    NSTask *task = [[NSTask alloc] init];
+    task.launchPath = command;
+    task.arguments = arguments;
+
+    NSPipe *pipe = [NSPipe pipe];
+    task.standardOutput = pipe;
+    [task launch];
+
+    NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
+    NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    [task waitUntilExit];
+    
+    return output;
+}
+
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    __block NSString *appName = nil;
-    __block NSDictionary *playingInfo = nil;
+    static NSString* script = getFilePathFromBundle(@"MediaRemote", @"scptd");
+    NSString* output = executeCommand(@"/usr/bin/osascript", @[script]);
+    nlohmann::json j = nlohmann::json::parse([output UTF8String]);
 
-    dispatch_group_t group = dispatch_group_create();
-
-    dispatch_group_enter(group);
-    MRMediaRemoteGetNowPlayingApplicationPID(dispatch_get_main_queue(), ^(pid_t pid) {
-      if (pid > 0) {
-          NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
-          if (app)
-              appName = [[app.bundleIdentifier copy] retain];
-      }
-      dispatch_group_leave(group);
-    });
-
-    dispatch_group_enter(group);
-    MRMediaRemoteGetNowPlayingInfo(dispatch_get_main_queue(), ^(CFDictionaryRef result) {
-      if (result)
-          playingInfo = [[(__bridge NSDictionary *)result copy] retain];
-      dispatch_group_leave(group);
-    });
-
-    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-    dispatch_release(group);
-    if (appName == nil || playingInfo == nil)
+    std::string appName = j["player"].get<std::string>();
+    if (appName == "none")
         return nullptr;
 
-    bool paused = [playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoPlaybackRate] intValue] == 0;
+    bool paused = j["playbackStatus"].get<std::string>() == "0";
 
-    NSString *title = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoTitle];
-    std::string songTitle = title ? [title UTF8String] : "";
+    std::string songTitle = j["title"].get<std::string>();
 
-    NSString *album = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoAlbum];
-    std::string songAlbum = album ? [album UTF8String] : "";
+    std::string songAlbum = j["album"].get<std::string>();
 
-    NSString *artist = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoArtist];
-    std::string songArtist = artist ? [artist UTF8String] : "";
+    std::string songArtist = j["artist"].get<std::string>();
 
-    NSData *artworkData = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoArtworkData];
+    int64_t elapsedTimeMs = 0;
+    int64_t durationMs = 0;
+    try {
+        double durationNumber = std::stod(j["duration"].get<std::string>());  
+        durationMs = static_cast<int64_t>(durationNumber * 1000);
 
-    std::string thumbnailData;
-    if (artworkData)
-        thumbnailData = std::string((const char *)[artworkData bytes], [artworkData length]);
+        double elapsedTimeNumber = std::stod(j["elapsed"].get<std::string>());  
+        elapsedTimeMs = static_cast<int64_t>(elapsedTimeNumber * 1000);
+    } catch (...) {} 
 
-    NSNumber *elapsedTimeNumber = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoElapsedTime];
-
-    NSNumber *durationNumber = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoDuration];
-
-    int64_t elapsedTimeMs = elapsedTimeNumber ? static_cast<int64_t>([elapsedTimeNumber doubleValue] * 1000) : 0;
-
-    int64_t durationMs = durationNumber ? static_cast<int64_t>([durationNumber doubleValue] * 1000) : 0;
-
-    std::string appNameString = appName.UTF8String;
-
-    [appName release];
-    [playingInfo release];
-    return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appNameString, thumbnailData,
+    return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appName, "",
                                        durationMs, elapsedTimeMs);
 }
 
