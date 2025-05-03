@@ -39,15 +39,15 @@ NSString* executeCommand(NSString* command, NSArray* arguments) {
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    static NSString* script = getFilePathFromBundle(@"MediaRemote", @"scptd");
-    NSString* output = executeCommand(@"/usr/bin/osascript", @[script]);
+    static NSString* script = getFilePathFromBundle(@"MediaRemote", @"js");
+    NSString* output = executeCommand(@"/usr/bin/osascript", @[@"-l", @"JavaScript", script]);
     nlohmann::json j = nlohmann::json::parse([output UTF8String]);
 
     std::string appName = j["player"].get<std::string>();
     if (appName == "none")
         return nullptr;
 
-    bool paused = j["playbackStatus"].get<std::string>() == "0";
+    bool paused = j["playbackStatus"].get<int>() == 0;
 
     std::string songTitle = j["title"].get<std::string>();
 
@@ -58,10 +58,10 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
     int64_t elapsedTimeMs = 0;
     int64_t durationMs = 0;
     try {
-        double durationNumber = std::stod(j["duration"].get<std::string>());  
+        double durationNumber = j["duration"].get<double>();  
         durationMs = static_cast<int64_t>(durationNumber * 1000);
 
-        double elapsedTimeNumber = std::stod(j["elapsed"].get<std::string>());  
+        double elapsedTimeNumber = j["elapsed"].get<double>();   
         elapsedTimeMs = static_cast<int64_t>(elapsedTimeNumber * 1000);
     } catch (...) {} 
 
