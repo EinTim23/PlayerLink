@@ -8,6 +8,7 @@
 #include <nlohmann-json/single_include/nlohmann/json.hpp>
 #include <fstream>
 
+#include "../MediaRemote.hpp"
 #include "../backend.hpp"
 
 void hideDockIcon(bool shouldHide) {
@@ -17,12 +18,12 @@ void hideDockIcon(bool shouldHide) {
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 }
 
-NSString* getFilePathFromBundle(NSString* fileName, NSString* fileType) {
+NSString *getFilePathFromBundle(NSString *fileName, NSString *fileType) {
     NSString *filePath = [[NSBundle mainBundle] pathForResource:fileName ofType:fileType];
     return filePath;
 }
 
-NSString* executeCommand(NSString* command, NSArray* arguments) {
+NSString *executeCommand(NSString *command, NSArray *arguments) {
     NSTask *task = [[NSTask alloc] init];
     task.launchPath = command;
     task.arguments = arguments;
@@ -34,39 +35,102 @@ NSString* executeCommand(NSString* command, NSArray* arguments) {
     NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
     NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     [task waitUntilExit];
-    
+
     return output;
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    static NSString* script = getFilePathFromBundle(@"MediaRemote", @"js");
-    NSString* output = executeCommand(@"/usr/bin/osascript", @[@"-l", @"JavaScript", script]);
-    nlohmann::json j = nlohmann::json::parse([output UTF8String]);
+    // apple decided to prevent apps not signed by them to use media remote, so we use an apple script instead. But that script only works on Sonoma or newer and the other one is arguably better, so keep the old method as well
+    if (@available(macOS 15.0, *)) {
+        static NSString *script = getFilePathFromBundle(@"MediaRemote", @"js");
+        NSString *output = executeCommand(@"/usr/bin/osascript", @[ @"-l", @"JavaScript", script ]);
+        nlohmann::json j = nlohmann::json::parse([output UTF8String]);
 
-    std::string appName = j["player"].get<std::string>();
-    if (appName == "none")
-        return nullptr;
+        std::string appName = j["player"].get<std::string>();
+        if (appName == "none")
+            return nullptr;
 
-    bool paused = j["playbackStatus"].get<int>() == 0;
+        bool paused = j["playbackStatus"].get<int>() == 0;
 
-    std::string songTitle = j["title"].get<std::string>();
+        std::string songTitle = j["title"].get<std::string>();
 
-    std::string songAlbum = j["album"].get<std::string>();
+        std::string songAlbum = j["album"].get<std::string>();
 
-    std::string songArtist = j["artist"].get<std::string>();
+        std::string songArtist = j["artist"].get<std::string>();
 
-    int64_t elapsedTimeMs = 0;
-    int64_t durationMs = 0;
-    try {
-        double durationNumber = j["duration"].get<double>();  
-        durationMs = static_cast<int64_t>(durationNumber * 1000);
+        int64_t elapsedTimeMs = 0;
+        int64_t durationMs = 0;
+        try {
+            double durationNumber = j["duration"].get<double>();
+            durationMs = static_cast<int64_t>(durationNumber * 1000);
 
-        double elapsedTimeNumber = j["elapsed"].get<double>();   
-        elapsedTimeMs = static_cast<int64_t>(elapsedTimeNumber * 1000);
-    } catch (...) {} 
+            double elapsedTimeNumber = j["elapsed"].get<double>();
+            elapsedTimeMs = static_cast<int64_t>(elapsedTimeNumber * 1000);
+        } catch (...) {
+        }
 
-    return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appName, "",
-                                       durationMs, elapsedTimeMs);
+        return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appName, "", durationMs,
+                                           elapsedTimeMs);
+    } else {
+        __block NSString *appName = nil;
+        __block NSDictionary *playingInfo = nil;
+
+        dispatch_group_t group = dispatch_group_create();
+
+        dispatch_group_enter(group);
+        MRMediaRemoteGetNowPlayingApplicationPID(dispatch_get_main_queue(), ^(pid_t pid) {
+          if (pid > 0) {
+              NSRunningApplication *app = [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+              if (app)
+                  appName = [[app.bundleIdentifier copy] retain];
+          }
+          dispatch_group_leave(group);
+        });
+
+        dispatch_group_enter(group);
+        MRMediaRemoteGetNowPlayingInfo(dispatch_get_main_queue(), ^(CFDictionaryRef result) {
+          if (result)
+              playingInfo = [[(__bridge NSDictionary *)result copy] retain];
+          dispatch_group_leave(group);
+        });
+
+        dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+        dispatch_release(group);
+        if (appName == nil || playingInfo == nil)
+            return nullptr;
+
+        bool paused = [playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoPlaybackRate] intValue] == 0;
+
+        NSString *title = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoTitle];
+        std::string songTitle = title ? [title UTF8String] : "";
+
+        NSString *album = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoAlbum];
+        std::string songAlbum = album ? [album UTF8String] : "";
+
+        NSString *artist = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoArtist];
+        std::string songArtist = artist ? [artist UTF8String] : "";
+
+        NSData *artworkData = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoArtworkData];
+
+        std::string thumbnailData;
+        if (artworkData)
+            thumbnailData = std::string((const char *)[artworkData bytes], [artworkData length]);
+
+        NSNumber *elapsedTimeNumber = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoElapsedTime];
+
+        NSNumber *durationNumber = playingInfo[(__bridge NSString *)kMRMediaRemoteNowPlayingInfoDuration];
+
+        int64_t elapsedTimeMs = elapsedTimeNumber ? static_cast<int64_t>([elapsedTimeNumber doubleValue] * 1000) : 0;
+
+        int64_t durationMs = durationNumber ? static_cast<int64_t>([durationNumber doubleValue] * 1000) : 0;
+
+        std::string appNameString = appName.UTF8String;
+
+        [appName release];
+        [playingInfo release];
+        return std::make_shared<MediaInfo>(paused, songTitle, songArtist, songAlbum, appNameString, thumbnailData,
+                                           durationMs, elapsedTimeMs);
+    }
 }
 
 std::filesystem::path backend::getConfigDirectory() {
@@ -80,14 +144,14 @@ bool backend::toggleAutostart(bool enabled) {
     launchAgentPath = launchAgentPath / "Library" / "LaunchAgents";
     std::filesystem::create_directories(launchAgentPath);
     launchAgentPath = launchAgentPath / "PlayerLink.plist";
-    
+
     if (!enabled && std::filesystem::exists(launchAgentPath)) {
         std::filesystem::remove(launchAgentPath);
         return true;
     }
     NSString *binaryPath = [[[NSProcessInfo processInfo] arguments][0] stringByStandardizingPath];
 
-    //I would also like to use std::format here, but well I also want to support older mac os versions.
+    // I would also like to use std::format here, but well I also want to support older mac os versions.
     std::string formattedPlist =
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
         "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n  <dict>\n\n    "
