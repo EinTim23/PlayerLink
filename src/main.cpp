@@ -270,6 +270,11 @@ public:
             listBox->Append(process);
         }
 
+        if (app->processNames.size() == 0 && lastMediaSource != "") {
+            listBox->Append(lastMediaSource);
+            app->processNames.push_back(lastMediaSource);
+        }
+        
         processBox->Add(listBox, 1, wxALL | wxEXPAND, 5);
 
         // Add input + buttons
