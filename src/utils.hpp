@@ -317,7 +317,7 @@ namespace utils {
                 a.enabled = app.value("enabled", false);
                 a.type = app.value("type", 2);
 
-                for (const auto& process : app["process_names"]) a.processNames.push_back(process.get<std::string>());
+                for (const auto& process : app.value("process_names", nlohmann::json())) a.processNames.push_back(process.get<std::string>());
 
                 ret.apps.push_back(a);
             }

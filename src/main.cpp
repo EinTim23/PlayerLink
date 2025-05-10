@@ -13,6 +13,7 @@
 #include "lastfm.hpp"
 #include "rsrc.hpp"
 #include "utils.hpp"
+#include "wx/sizer.h"
 
 std::string lastPlayingSong = "";
 std::string lastMediaSource = "";
@@ -228,11 +229,8 @@ public:
             wxEVT_TEXT, [this, app](wxCommandEvent& event) { app->searchEndpoint = event.GetString().ToStdString(); });
         formSizer->Add(searchEndpointInput, 1, wxALL | wxEXPAND, 5);
 
-        mainSizer->Add(formSizer, 0, wxEXPAND | wxALL, 5);
-
         // Dropdown
-        wxBoxSizer* dropdownSizer = new wxBoxSizer(wxHORIZONTAL);
-        dropdownSizer->Add(new wxStaticText(this, wxID_ANY, "Activity Type:"), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        formSizer->Add(new wxStaticText(this, wxID_ANY, "Activity Type:"), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
         wxString choices[] = {_("Listening"), _("Watching"), _("Playing")};
         wxChoice* activityChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 3, choices);
 
@@ -259,11 +257,12 @@ public:
             app->type = typeMap.at(event.GetString());
         });
 
-        dropdownSizer->Add(activityChoice, 1, wxALL | wxEXPAND, 5);
-        mainSizer->Add(dropdownSizer, 0, wxEXPAND);
+        formSizer->Add(activityChoice, 1, wxALL | wxEXPAND, 5);
+        mainSizer->Add(formSizer, 0, wxEXPAND);
 
         // Process names group
-        wxStaticBoxSizer* processBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Process names"));
+        formSizer->Add(new wxStaticText(this, wxID_ANY, _("Process names:")), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        wxBoxSizer* processBox = new wxBoxSizer(wxVERTICAL);
 
         wxListBox* listBox = new wxListBox(this, wxID_ANY);
 
