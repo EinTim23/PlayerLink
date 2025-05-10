@@ -92,50 +92,55 @@ std::shared_ptr<MediaInfo> backend::getMediaInformation() {
         return nullptr;
 
     auto playbackInfo = currentSession.GetPlaybackInfo();
-    auto mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
-    auto timelineInformation = currentSession.GetTimelineProperties();
-    if (!mediaProperties)
+    try {
+        auto mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
+        auto timelineInformation = currentSession.GetTimelineProperties();
+        if (!mediaProperties)
+            return nullptr;
+
+        auto endTime = std::chrono::duration_cast<std::chrono::milliseconds>(timelineInformation.EndTime()).count();
+        auto elapsedTime =
+            std::chrono::duration_cast<std::chrono::milliseconds>(timelineInformation.Position()).count();
+
+        auto thumbnail = mediaProperties.Thumbnail();
+        std::string thumbnailData = "";
+
+        if (thumbnail) {
+            auto stream = thumbnail.OpenReadAsync().get();
+            size_t size = static_cast<size_t>(stream.Size());
+
+            DataReader reader(stream);
+            reader.LoadAsync(static_cast<uint32_t>(size)).get();
+
+            std::vector<uint8_t> buffer(size);
+            reader.ReadBytes(buffer);
+            reader.Close();
+
+            thumbnailData = std::string(buffer.begin(), buffer.end());
+            stream.Close();
+        }
+
+        std::string artist = toStdString(mediaProperties.Artist());
+        std::string albumName = toStdString(mediaProperties.AlbumTitle());
+        if (artist == "")
+            artist = toStdString(mediaProperties.AlbumArtist());  // Needed for some apps
+
+        if (artist.find(EM_DASH) != std::string::npos) {
+            albumName = artist.substr(artist.find(EM_DASH) + 3);
+            artist = artist.substr(0, artist.find(EM_DASH));
+            utils::trim(artist);
+            utils::trim(albumName);
+        }
+
+        std::string modelId = toStdString(currentSession.SourceAppUserModelId());
+
+        return std::make_shared<MediaInfo>(
+            playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused,
+            toStdString(mediaProperties.Title()), std::move(artist), std::move(albumName), std::move(modelId),
+            std::move(thumbnailData), endTime, elapsedTime);
+    } catch (...) {
         return nullptr;
-
-    auto endTime = std::chrono::duration_cast<std::chrono::milliseconds>(timelineInformation.EndTime()).count();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(timelineInformation.Position()).count();
-
-    auto thumbnail = mediaProperties.Thumbnail();
-    std::string thumbnailData = "";
-
-    if (thumbnail) {
-        auto stream = thumbnail.OpenReadAsync().get();
-        size_t size = static_cast<size_t>(stream.Size());
-
-        DataReader reader(stream);
-        reader.LoadAsync(static_cast<uint32_t>(size)).get();
-
-        std::vector<uint8_t> buffer(size);
-        reader.ReadBytes(buffer);
-        reader.Close();
-
-        thumbnailData = std::string(buffer.begin(), buffer.end());
-        stream.Close();
     }
-
-    std::string artist = toStdString(mediaProperties.Artist());
-    std::string albumName = toStdString(mediaProperties.AlbumTitle());
-    if (artist == "")
-        artist = toStdString(mediaProperties.AlbumArtist());  // Needed for some apps
-
-    if (artist.find(EM_DASH) != std::string::npos) {
-        albumName = artist.substr(artist.find(EM_DASH) + 3);
-        artist = artist.substr(0, artist.find(EM_DASH));
-        utils::trim(artist);
-        utils::trim(albumName);
-    }
-
-    std::string modelId = toStdString(currentSession.SourceAppUserModelId());
-
-    return std::make_shared<MediaInfo>(
-        playbackInfo.PlaybackStatus() == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused,
-        toStdString(mediaProperties.Title()), std::move(artist), std::move(albumName), std::move(modelId),
-        std::move(thumbnailData), endTime, elapsedTime);
 }
 
 bool backend::init() {
