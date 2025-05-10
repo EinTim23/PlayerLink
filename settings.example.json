@@ -5,13 +5,34 @@
             "client_id": "1245257414715113573",
             "enabled": true,
             "name": "Spotify",
+            "type": 2,
             "process_names": [
                 "org.mpris.MediaPlayer2.spotify",
                 "com.spotify.client",
                 "Spotify.exe"
             ],
             "search_endpoint": "https://open.spotify.com/search/"
+        },
+        {
+            "client_id": "1337188104829665340",
+            "enabled": true,
+            "name": "Apple Music",
+            "type": 2,
+            "process_names": [
+                "com.apple.Music",
+                "AppleInc.AppleMusicWin_nzyj5cx40ttqa!APP",
+                "AppleMusic.exe"
+            ],
+            "search_endpoint": "https://open.spotify.com/search/"
         }
     ],
+    "lastfm": {
+        "api_key": "",
+        "api_secret": "",
+        "enabled": false,
+        "password": "",
+        "username": ""
+    },
+    "odesli": true,
     "autostart": false
 }

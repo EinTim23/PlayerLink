@@ -110,7 +110,7 @@ void handleMediaTasks() {
 
         std::string activityState = "by " + mediaInformation->songArtist;
         DiscordRichPresence activity{};
-        activity.type = ActivityType::LISTENING;
+        activity.type = app.type;
         activity.details = mediaInformation->songTitle.c_str();
         activity.state = activityState.c_str();
         activity.smallImageText = serviceName.c_str();

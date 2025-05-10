@@ -21,6 +21,7 @@
 namespace utils {
     struct App {
         bool enabled;
+        int type;
         std::string appName;
         std::string clientId;
         std::string searchEndpoint;
@@ -67,6 +68,15 @@ namespace utils {
         }
         return wxNullIcon;
     }
+
+    inline std::string toLower(const std::string& str) {
+        std::string lowerStr = str;
+        std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        return lowerStr;
+    }
+
+    inline bool caseInsensitiveMatch(const std::string& a, const std::string& b) { return toLower(a) == toLower(b); }
 
     inline std::string ltrim(std::string& s) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
@@ -144,19 +154,23 @@ namespace utils {
         SongInfo ret{};
         std::string response =
             httpRequest("https://itunes.apple.com/search?media=music&entity=song&term=" + urlEncode(query));
-        nlohmann::json j = nlohmann::json::parse(response);
-        auto results = j["results"];
-        if (results.size() > 0) {
-            ret.artworkURL = results[0]["artworkUrl100"].get<std::string>();
-            ret.trackId = results[0]["trackId"].get<int64_t>();
+        try {
+            nlohmann::json j = nlohmann::json::parse(response);
+            auto results = j["results"];
+            if (results.size() > 0) {
+                ret.artworkURL = results[0]["artworkUrl100"].get<std::string>();
+                ret.trackId = results[0]["trackId"].get<int64_t>();
+            }
+            return ret;
+        } catch (...) {
+            return ret;
         }
-        return ret;
     }
 
     inline std::string getOdesliURL(SongInfo& song) {
         return std::string("https://song.link/i/" + std::to_string(song.trackId));
     }
-    
+
     inline void saveSettings(const App* newApp) {
         nlohmann::json j;
 
@@ -224,7 +238,7 @@ namespace utils {
             appJson["client_id"] = app.clientId;
             appJson["search_endpoint"] = app.searchEndpoint;
             appJson["enabled"] = app.enabled;
-
+            appJson["type"] = app.type;
             for (const auto& processName : app.processNames) appJson["process_names"].push_back(processName);
 
             j["apps"].push_back(appJson);
@@ -269,6 +283,7 @@ namespace utils {
                 a.clientId = app.value("client_id", "");
                 a.searchEndpoint = app.value("search_endpoint", "");
                 a.enabled = app.value("enabled", false);
+                a.type = app.value("type", 2);
 
                 for (const auto& process : app["process_names"]) a.processNames.push_back(process.get<std::string>());
 
@@ -283,7 +298,7 @@ namespace utils {
         auto settings = getSettings();
         for (auto app : settings.apps) {
             for (auto procName : app.processNames) {
-                if (procName == processName)
+                if (caseInsensitiveMatch(procName, processName))
                     return app;
             }
         }
@@ -291,6 +306,7 @@ namespace utils {
         a.clientId = DEFAULT_CLIENT_ID;
         a.appName = DEFAULT_APP_NAME;
         a.enabled = settings.anyOtherEnabled;
+        a.type = 2;  // Default to listening
         a.searchEndpoint = "";
         return a;
     }
