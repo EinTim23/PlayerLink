@@ -30,6 +30,7 @@ NSString *executeCommand(NSString *command, NSArray *arguments) {
 
     NSPipe *pipe = [NSPipe pipe];
     task.standardOutput = pipe;
+    task.standardError = [NSPipe pipe];
     [task launch];
 
     NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
