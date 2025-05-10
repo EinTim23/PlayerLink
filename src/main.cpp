@@ -182,27 +182,155 @@ public:
         mainSizer->Add(okButton, 0, wxALL | wxALIGN_CENTER, 10);
 
         this->SetSizerAndFit(mainSizer);
-        this->CentreOnScreen();
+        this->CenterOnScreen();
     }
+};
+
+class EditAppDialog : public wxDialog {
+public:
+    EditAppDialog(wxWindow* parent, const wxString title, utils::App* app)
+        : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
+                   wxDEFAULT_DIALOG_STYLE & ~wxRESIZE_BORDER) {
+        Bind(wxEVT_CLOSE_WINDOW, &EditAppDialog::OnClose, this);
+
+        wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+        wxFlexGridSizer* formSizer = new wxFlexGridSizer(2, 0, 5);
+
+        // Make the second column growable (the one with the text controls)
+        formSizer->AddGrowableCol(1, 1);
+
+        // Application name
+        formSizer->Add(new wxStaticText(this, wxID_ANY, _("Application name:")), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        auto nameInput = new wxTextCtrl(this, wxID_ANY);
+        nameInput->SetValue(app->appName);
+        nameInput->SetHint(_("Example: Apple Music"));
+        nameInput->Bind(wxEVT_TEXT,
+                        [this, app](wxCommandEvent& event) { app->appName = event.GetString().ToStdString(); });
+        formSizer->Add(nameInput, 1, wxALL | wxEXPAND, 5);
+
+        // Client ID
+        formSizer->Add(new wxStaticText(this, wxID_ANY, _("Discord client id:")), 0, wxALL | wxALIGN_CENTER_VERTICAL,
+                       5);
+        auto clientIdInput = new wxTextCtrl(this, wxID_ANY);
+        clientIdInput->SetHint(_("Example: 1337188104829665340"));
+        clientIdInput->SetValue(app->clientId);
+        clientIdInput->Bind(wxEVT_TEXT,
+                            [this, app](wxCommandEvent& event) { app->clientId = event.GetString().ToStdString(); });
+        formSizer->Add(clientIdInput, 1, wxALL | wxEXPAND, 5);
+
+        // Search endpoint
+        formSizer->Add(new wxStaticText(this, wxID_ANY, _("Search endpoint:")), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        auto searchEndpointInput = new wxTextCtrl(this, wxID_ANY);
+        searchEndpointInput->SetValue(app->searchEndpoint);
+        searchEndpointInput->SetHint(_("Search endpoint: https://music.apple.com/search?term="));
+        searchEndpointInput->Bind(
+            wxEVT_TEXT, [this, app](wxCommandEvent& event) { app->searchEndpoint = event.GetString().ToStdString(); });
+        formSizer->Add(searchEndpointInput, 1, wxALL | wxEXPAND, 5);
+
+        mainSizer->Add(formSizer, 0, wxEXPAND | wxALL, 5);
+
+        // Dropdown
+        wxBoxSizer* dropdownSizer = new wxBoxSizer(wxHORIZONTAL);
+        dropdownSizer->Add(new wxStaticText(this, wxID_ANY, "Activity Type:"), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        wxString choices[] = {_("Listening"), _("Watching"), _("Playing")};
+        wxChoice* activityChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 3, choices);
+
+        switch (app->type) {
+        case ActivityType::PLAYING:
+            activityChoice->SetSelection(2);
+            break;
+        case ActivityType::LISTENING:
+            activityChoice->SetSelection(0);
+            break;
+        case ActivityType::WATCHING:
+            activityChoice->SetSelection(1);
+            break;
+        default:
+            activityChoice->SetSelection(0);
+        }
+
+        activityChoice->Bind(wxEVT_CHOICE, [activityChoice, app](wxCommandEvent& event) {
+            const std::map<wxString, ActivityType> typeMap = {
+                {_("Listening"), ActivityType::LISTENING},
+                {_("Watching"), ActivityType::WATCHING},
+                {_("Playing"), ActivityType::PLAYING},
+            };
+            app->type = typeMap.at(event.GetString());
+        });
+
+        dropdownSizer->Add(activityChoice, 1, wxALL | wxEXPAND, 5);
+        mainSizer->Add(dropdownSizer, 0, wxEXPAND);
+
+        // Process names group
+        wxStaticBoxSizer* processBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Process names"));
+
+        wxListBox* listBox = new wxListBox(this, wxID_ANY);
+
+        for (auto& process : app->processNames) {
+            listBox->Append(process);
+        }
+
+        processBox->Add(listBox, 1, wxALL | wxEXPAND, 5);
+
+        // Add input + buttons
+        wxBoxSizer* addSizer = new wxBoxSizer(wxHORIZONTAL);
+        auto processNameInput =
+            new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(250, wxDefaultSize.GetHeight()), 0);
+        processNameInput->SetHint(_("Process name"));
+        const auto delete_button_texture = utils::loadSettingsIcon(trash_svg, trash_svg_size);
+        const auto add_button_texture = utils::loadSettingsIcon(plus_svg, plus_svg_size);
+        wxBitmapButton* addButton = new wxBitmapButton(this, wxID_ANY, add_button_texture);
+        wxBitmapButton* removeButton = new wxBitmapButton(this, wxID_ANY, delete_button_texture);
+
+        addSizer->Add(processNameInput, 1, wxALL | wxEXPAND, 5);
+        addSizer->Add(addButton, 0, wxALL, 5);
+        addSizer->Add(removeButton, 0, wxALL, 5);
+        processBox->Add(addSizer, 0, wxEXPAND);
+        mainSizer->Add(processBox, 1, wxALL | wxEXPAND, 5);
+
+        SetSizerAndFit(mainSizer);
+        Centre();
+
+        // Bind events
+        addButton->Bind(wxEVT_BUTTON, [processNameInput, listBox, app](wxCommandEvent& event) {
+            wxString name = processNameInput->GetValue().Trim();
+            if (!name.IsEmpty()) {
+                listBox->Append(name);
+                app->processNames.push_back(name.ToStdString());
+                processNameInput->Clear();
+            }
+        });
+
+        removeButton->Bind(wxEVT_BUTTON, [listBox, app](wxCommandEvent& event) {
+            int selection = listBox->GetSelection();
+
+            if (selection != wxNOT_FOUND) {
+                app->processNames.erase(std::find(app->processNames.begin(), app->processNames.end(),
+                                                  listBox->GetString(selection).ToStdString()));
+                listBox->Delete(selection);
+            }
+        });
+
+        wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+
+        wxButton* okButton = new wxButton(this, wxID_OK, _("Save"));
+        wxButton* cancelButton = new wxButton(this, wxID_CANCEL, _("Cancel"));
+        buttonSizer->Add(okButton, 0, wxALL | wxALIGN_CENTER, 10);
+        buttonSizer->Add(cancelButton, 0, wxALL | wxALIGN_CENTER, 10);
+
+        mainSizer->Add(buttonSizer, 0, wxALL | wxALIGN_CENTER);
+        this->SetSizerAndFit(mainSizer);
+        this->CenterOnParent();
+    }
+
+private:
+    void OnClose(wxCloseEvent& event) { EndModal(wxID_CANCEL); }
 };
 
 class PlayerLinkIcon : public wxTaskBarIcon {
 public:
     PlayerLinkIcon(wxFrame* s) : settingsFrame(s), aboutDlg(nullptr) {}
-
-    void OnMenuOpen(wxCommandEvent& evt) {
-        settingsFrame->Show(true);
-        settingsFrame->Raise();
-    }
-
-    void OnCopyOdesliURL(wxCommandEvent& evt) { utils::copyToClipboard(utils::getOdesliURL(songInfo)); }
-
-    void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
-
-    void OnMenuAbout(wxCommandEvent& evt) {
-        aboutDlg.Show(true);
-        aboutDlg.Raise();
-    }
 
 protected:
     virtual wxMenu* CreatePopupMenu() override {
@@ -225,64 +353,21 @@ protected:
     }
 
 private:
+    void OnMenuOpen(wxCommandEvent& evt) {
+        settingsFrame->Show(true);
+        settingsFrame->Raise();
+    }
+
+    void OnCopyOdesliURL(wxCommandEvent& evt) { utils::copyToClipboard(utils::getOdesliURL(songInfo)); }
+
+    void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
+
+    void OnMenuAbout(wxCommandEvent& evt) {
+        aboutDlg.Show(true);
+        aboutDlg.Raise();
+    }
     wxFrame* settingsFrame;
     AboutDialog aboutDlg;
-};
-
-class wxTextCtrlWithPlaceholder : public wxTextCtrl {
-public:
-    wxTextCtrlWithPlaceholder(wxWindow* parent, wxWindowID id, const wxString& value,
-                              const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
-                              long style = 0, const wxValidator& validator = wxDefaultValidator,
-                              const wxString& name = "textCtrl")
-        : wxTextCtrl(parent, id, value, pos, size, style, validator, name),
-          placeholder(""),
-          showPlaceholder(true),
-          isPassword((style & wxTE_PASSWORD) != 0) {
-        Bind(wxEVT_SET_FOCUS, &wxTextCtrlWithPlaceholder::OnFocus, this);
-        Bind(wxEVT_KILL_FOCUS, &wxTextCtrlWithPlaceholder::OnBlur, this);
-    }
-
-    void SetPlaceholderText(const wxString& p) {
-        placeholder = p;
-        if (GetValue().IsEmpty() || showPlaceholder)
-            UpdatePlaceholder();
-    }
-
-protected:
-    void OnFocus(wxFocusEvent& event) {
-        if (showPlaceholder && GetValue() == placeholder) {
-            Clear();
-            if (isPassword)
-                SetStyleToPassword();
-        }
-
-        showPlaceholder = false;
-        event.Skip();
-    }
-
-    void OnBlur(wxFocusEvent& event) {
-        if (GetValue().IsEmpty()) {
-            showPlaceholder = true;
-            UpdatePlaceholder();
-        }
-        event.Skip();
-    }
-
-private:
-    wxString placeholder;
-    bool showPlaceholder;
-    bool isPassword;
-
-    void UpdatePlaceholder() {
-        if (isPassword)
-            SetStyleToNormal();
-        SetValue(placeholder);
-    }
-
-    void SetStyleToPassword() { SetWindowStyle(GetWindowStyle() | wxTE_PASSWORD); }
-
-    void SetStyleToNormal() { SetWindowStyle(GetWindowStyle() & ~wxTE_PASSWORD); }
 };
 
 class PlayerLinkFrame : public wxFrame {
@@ -297,6 +382,9 @@ public:
         auto mainContainer = new wxBoxSizer(wxVERTICAL);
         wxPanel* panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
         panel->SetSizer(mainContainer);
+
+        wxBoxSizer* frameSizer = new wxBoxSizer(wxVERTICAL);
+        frameSizer->Add(panel, 1, wxEXPAND);
         // header start
         auto settingsText = new wxStaticText(panel, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
         settingsText->Wrap(-1);
@@ -324,8 +412,22 @@ public:
         wxBoxSizer* rowSizer = new wxBoxSizer(wxHORIZONTAL);
 
         wxBitmapButton* addButton = new wxBitmapButton(panel, wxID_ANY, add_button_texture);
-        addButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
-
+        addButton->Bind(wxEVT_BUTTON, [this, panel, frameSizer, size, delete_button_texture, edit_button_texture,
+                                       appCheckboxContainer](wxCommandEvent& event) {
+            utils::App* app = new utils::App();
+            EditAppDialog dlg{this, _("Add new application"), app};
+            if (dlg.ShowModal() == wxID_OK) {
+                auto settings = utils::getSettings();
+                settings.apps.push_back(*app);
+                utils::saveSettings(settings);
+                addCheckboxToContainer(panel, appCheckboxContainer, frameSizer, size, delete_button_texture,
+                                       edit_button_texture, *app);
+                this->SetSizerAndFit(frameSizer);
+                wxSize currentSize = this->GetSize();
+                this->SetSize(size.GetWidth(), currentSize.GetHeight());
+                this->Layout();
+            } else
+                delete app;
         });
         rowSizer->Add(addButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
 
@@ -334,47 +436,9 @@ public:
         enabledAppsContainer->Add(vSizer, 0, wxEXPAND);
         auto settings = utils::getSettings();
 
-        for (auto app : settings.apps) {
-            wxBoxSizer* checkboxRowSizer = new wxBoxSizer(wxHORIZONTAL);
-
-            auto checkbox = new wxCheckBox(panel, wxID_ANY, app.appName, wxDefaultPosition, wxDefaultSize, 0);
-            checkbox->SetValue(app.enabled);
-            checkbox->SetClientData(new utils::App(app));
-            checkbox->Bind(wxEVT_CHECKBOX, [checkbox](wxCommandEvent& event) {
-                bool isChecked = checkbox->IsChecked();
-                utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
-                appData->enabled = isChecked;
-                utils::saveSettings(appData);
-            });
-            checkbox->Bind(wxEVT_DESTROY, [checkbox](wxWindowDestroyEvent&) {
-                delete static_cast<utils::App*>(checkbox->GetClientData());
-            });
-
-            wxBitmapButton* editButton = new wxBitmapButton(panel, wxID_ANY, edit_button_texture);
-            editButton->Bind(wxEVT_BUTTON, [checkbox](wxCommandEvent& event) {
-
-            });
-
-            wxBitmapButton* deleteButton = new wxBitmapButton(panel, wxID_ANY, delete_button_texture);
-            deleteButton->Bind(wxEVT_BUTTON, [this, checkbox, editButton, deleteButton, checkboxRowSizer,
-                                              appCheckboxContainer](wxCommandEvent& event) {
-                utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
-                auto settings = utils::getSettings();
-                settings.apps.erase(std::find(settings.apps.begin(), settings.apps.end(), *appData));
-                utils::saveSettings(settings);
-                appCheckboxContainer->Detach(checkboxRowSizer);
-
-                this->CallAfter([this, checkboxRowSizer]() {
-                    checkboxRowSizer->Clear(true);
-                    this->Layout();
-                });
-            });
-
-            checkboxRowSizer->Add(checkbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
-            checkboxRowSizer->Add(editButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
-            checkboxRowSizer->Add(deleteButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
-
-            appCheckboxContainer->Add(checkboxRowSizer, 0, wxALL, 5);
+        for (const auto& app : settings.apps) {
+            addCheckboxToContainer(panel, appCheckboxContainer, frameSizer, size, delete_button_texture,
+                                   edit_button_texture, app);
         }
 
         auto anyOtherCheckbox = new wxCheckBox(panel, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
@@ -386,9 +450,8 @@ public:
             utils::saveSettings(settings);
         });
 
-        appCheckboxContainer->Add(anyOtherCheckbox, 0, wxALL, 5);
-
         vSizer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
+        vSizer->Add(anyOtherCheckbox, 1, wxALL, 5);
 
         mainContainer->Add(enabledAppsContainer, 0, 0, 5);
         // enabled apps end
@@ -418,9 +481,8 @@ public:
         lastfmSettingsContainer->Add(lastfmEnabledCheckbox, 0, wxALIGN_CENTER | wxALL, 5);
         lastFMContainer->Add(lastfmSettingsContainer, 1, wxEXPAND, 5);
 
-        auto usernameInput =
-            new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
-        usernameInput->SetPlaceholderText(_("Username"));
+        auto usernameInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+        usernameInput->SetHint(_("Username"));
         usernameInput->SetValue(settings.lastfm.username);
         usernameInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
             auto settings = utils::getSettings();
@@ -428,9 +490,9 @@ public:
             settings.lastfm.username = data;
             utils::saveSettings(settings);
         });
-        auto passwordInput = new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
-                                                           wxDefaultSize, wxTE_PASSWORD);
-        passwordInput->SetPlaceholderText(_("Password"));
+        auto passwordInput =
+            new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+        passwordInput->SetHint(_("Password"));
         passwordInput->SetValue(settings.lastfm.password);
         passwordInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
             auto settings = utils::getSettings();
@@ -438,9 +500,8 @@ public:
             settings.lastfm.password = data;
             utils::saveSettings(settings);
         });
-        auto apikeyInput =
-            new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
-        apikeyInput->SetPlaceholderText(_("API-Key"));
+        auto apikeyInput = new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+        apikeyInput->SetHint(_("API-Key"));
         apikeyInput->SetValue(settings.lastfm.api_key);
         apikeyInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
             auto settings = utils::getSettings();
@@ -448,9 +509,9 @@ public:
             settings.lastfm.api_key = data;
             utils::saveSettings(settings);
         });
-        auto apisecretInput = new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
-                                                            wxDefaultSize, wxTE_PASSWORD);
-        apisecretInput->SetPlaceholderText(_("API-Secret"));
+        auto apisecretInput =
+            new wxTextCtrl(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
+        apisecretInput->SetHint(_("API-Secret"));
         apisecretInput->SetValue(settings.lastfm.api_secret);
         apisecretInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
             auto settings = utils::getSettings();
@@ -512,15 +573,73 @@ public:
         mainContainer->Add(startupContainer, 0, wxEXPAND, 5);
         // settings end
 
-        wxBoxSizer* frameSizer = new wxBoxSizer(wxVERTICAL);
-        frameSizer->Add(panel, 1, wxEXPAND);
         this->SetSizerAndFit(frameSizer);
         wxSize currentSize = this->GetSize();
         this->SetSize(size.GetWidth(), currentSize.GetHeight());
         this->Layout();
-
         this->Centre(wxBOTH);
         panel->SetFocus();
+    }
+
+private:
+    void addCheckboxToContainer(wxPanel* panel, wxBoxSizer* container, wxBoxSizer* frameSizer, const wxSize& size,
+                                const wxBitmap& delete_button_texture, const wxBitmap& edit_button_texture,
+                                const utils::App& app) {
+        wxBoxSizer* checkboxRowSizer = new wxBoxSizer(wxHORIZONTAL);
+
+        auto checkbox = new wxCheckBox(panel, wxID_ANY, app.appName, wxDefaultPosition, wxDefaultSize, 0);
+        checkbox->SetValue(app.enabled);
+        checkbox->SetClientData(new utils::App(app));
+        checkbox->Bind(wxEVT_CHECKBOX, [checkbox](wxCommandEvent& event) {
+            bool isChecked = checkbox->IsChecked();
+            utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
+            appData->enabled = isChecked;
+            utils::saveSettings(appData);
+        });
+        checkbox->Bind(wxEVT_DESTROY, [checkbox](wxWindowDestroyEvent&) {
+            delete static_cast<utils::App*>(checkbox->GetClientData());
+        });
+
+        wxBitmapButton* editButton = new wxBitmapButton(panel, wxID_ANY, edit_button_texture);
+        editButton->Bind(wxEVT_BUTTON, [this, checkbox](wxCommandEvent& event) {
+            utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
+            utils::App backupApp = *appData;
+            EditAppDialog dlg{this, _("Edit application") + " " + appData->appName, appData};
+            if (dlg.ShowModal() == wxID_OK) {
+                auto settings = utils::getSettings();
+                for (auto& app : settings.apps) {
+                    if (app == backupApp)
+                        app = *appData;
+                }
+                utils::saveSettings(settings);
+                checkbox->SetLabelText(appData->appName);
+                this->Layout();
+            }
+        });
+
+        wxBitmapButton* deleteButton = new wxBitmapButton(panel, wxID_ANY, delete_button_texture);
+        deleteButton->Bind(wxEVT_BUTTON,
+                           [this, checkboxRowSizer, container, frameSizer, checkbox, size](wxCommandEvent& event) {
+                               utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
+                               auto settings = utils::getSettings();
+                               settings.apps.erase(std::find(settings.apps.begin(), settings.apps.end(), *appData));
+                               utils::saveSettings(settings);
+                               container->Detach(checkboxRowSizer);
+
+                               this->CallAfter([this, checkboxRowSizer, frameSizer, size]() {
+                                   checkboxRowSizer->Clear(true);
+                                   this->SetSizerAndFit(frameSizer);
+                                   wxSize currentSize = this->GetSize();
+                                   this->SetSize(size.GetWidth(), currentSize.GetHeight());
+                                   this->Layout();
+                               });
+                           });
+
+        checkboxRowSizer->Add(checkbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
+        checkboxRowSizer->Add(editButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+        checkboxRowSizer->Add(deleteButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+
+        container->Add(checkboxRowSizer, 0, wxALL, 5);
     }
 };
 

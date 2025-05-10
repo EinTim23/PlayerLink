@@ -23,7 +23,7 @@
                 "AppleInc.AppleMusicWin_nzyj5cx40ttqa!APP",
                 "AppleMusic.exe"
             ],
-            "search_endpoint": "https://open.spotify.com/search/"
+            "search_endpoint": "https://music.apple.com/search?term="
         }
     ],
     "lastfm": {
