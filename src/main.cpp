@@ -286,7 +286,7 @@ public:
         addSizer->Add(addButton, 0, wxALL, 5);
         addSizer->Add(removeButton, 0, wxALL, 5);
         processBox->Add(addSizer, 0, wxEXPAND);
-        mainSizer->Add(processBox, 1, wxALL | wxEXPAND, 5);
+        mainSizer->Add(processBox, 1, wxALL | wxEXPAND);
 
         SetSizerAndFit(mainSizer);
         Centre();
