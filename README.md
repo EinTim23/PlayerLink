@@ -89,4 +89,4 @@ An example on how to add custom apps to the config can be found [here](./setting
 This repository is open for contributions. You can view the current roadmap [here](https://github.com/EinTim23/PlayerLink/projects) or implement your own features and then open a pull request. Please keep your code as consistent and clean as possible.
 
 ## Credits
-This project was heavily inspired by [Alexandra Aurora's MusicRPC](https://github.com/AlexandraAurora/MusicRPC) and her project may provide a better experience when being on Mac OS only.
+This project was heavily inspired by [Alexandra Göttlicher's MusicRPC](https://github.com/kaethchen/MusicRPC) and her project may provide a better experience when being on Mac OS only.

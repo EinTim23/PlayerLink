@@ -4,7 +4,6 @@
 #include <wx/mstream.h>
 #include <wx/wx.h>
 #include <wx/clipbrd.h>
-
 #include <filesystem>
 #include <fstream>
 #include <nlohmann-json/single_include/nlohmann/json.hpp>
@@ -26,6 +25,9 @@ namespace utils {
         std::string clientId;
         std::string searchEndpoint;
         std::vector<std::string> processNames;
+        bool operator==(const App& other) const {
+            return appName == other.appName && clientId == other.clientId && type == other.type;
+        }
     };
 
     struct LastFMSettings {
@@ -57,16 +59,46 @@ namespace utils {
         }
     }
 
-    inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size) {
+    inline wxBitmap loadImageFromMemory(const unsigned char* data, size_t size, int width = 0, int height = 0) {
         wxMemoryInputStream stream(data, size);
         wxImage img(stream, wxBITMAP_TYPE_PNG);
         if (img.IsOk()) {
+            if (width != 0 || height != 0)
+                img.Rescale(width, height, wxIMAGE_QUALITY_HIGH);
             wxBitmap bmp(img);
-            wxIcon icon;
-            icon.CopyFromBitmap(bmp);
-            return icon;
+            return bmp;
         }
-        return wxNullIcon;
+        return wxNullBitmap;
+    }
+
+    inline wxIcon loadIconFromMemory(const unsigned char* data, size_t size, int width = 0, int height = 0) {
+        wxIcon icn{};
+        icn.CopyFromBitmap(loadImageFromMemory(data, size, width, height));
+        return icn;
+    }
+
+    inline wxBitmap loadColoredSVG(const unsigned char* svg, const unsigned int svg_size, const wxSize& size,
+                                   const wxColour& color) {
+        const std::string defaultColor = "currentColor";
+        std::string svg_data = std::string((const char*)svg, svg_size);
+        size_t start_pos = svg_data.find(defaultColor);
+        if (start_pos != std::string::npos)
+            svg_data.replace(start_pos, defaultColor.length(), color.GetAsString(wxC2S_HTML_SYNTAX));
+
+        wxBitmapBundle bundle = wxBitmapBundle::FromSVG(svg_data.c_str(), size);
+        if (!bundle.IsOk())
+            return wxNullBitmap;
+        wxBitmap bmp = bundle.GetBitmap(size);
+        if (!bmp.IsOk())
+            return wxNullBitmap;
+        return bmp;
+    }
+
+    inline wxBitmap loadSettingsIcon(const unsigned char* svg, const unsigned int svg_size,
+                                     const wxSize& size = wxSize(16, 16)) {
+        return loadColoredSVG(
+            svg, svg_size, size,
+            wxSystemSettings::GetAppearance().IsSystemDark() ? wxColor(255, 255, 255, 255) : wxColor(0, 0, 0, 255));
     }
 
     inline std::string toLower(const std::string& str) {

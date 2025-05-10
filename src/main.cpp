@@ -3,6 +3,7 @@
 #include <wx/mstream.h>
 #include <wx/statline.h>
 #include <wx/taskbar.h>
+#include <wx/hyperlink.h>
 #include <wx/wx.h>
 
 #include <chrono>
@@ -143,7 +144,7 @@ void handleMediaTasks() {
         }
 
         std::string odesliUrl = utils::getOdesliURL(songInfo);
-        if(settings.odesli && songInfo.artworkURL != "") {
+        if (settings.odesli && songInfo.artworkURL != "") {
             activity.button2name = "Show on Song.link";
             activity.button2link = odesliUrl.c_str();
         }
@@ -151,9 +152,43 @@ void handleMediaTasks() {
         Discord_UpdatePresence(&activity);
     }
 }
+
+class AboutDialog : public wxDialog {
+public:
+    AboutDialog(wxWindow* parent)
+        : wxDialog(parent, wxID_ANY, _("About PlayerLink"), wxDefaultPosition, wxDefaultSize,
+                   wxDEFAULT_DIALOG_STYLE & ~wxRESIZE_BORDER) {
+        wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+        wxStaticText* label = new wxStaticText(this, wxID_ANY, _("Made with <3 by EinTim"));
+        label->Wrap(300);
+        mainSizer->Add(label, 0, wxALL | wxALIGN_CENTER, 10);
+
+        wxStaticText* copyrightText = new wxStaticText(this, wxID_ANY, "© 2024-2025 EinTim. All rights reserved.");
+        copyrightText->Wrap(300);
+        mainSizer->Add(copyrightText, 0, wxALL | wxALIGN_CENTER, 10);
+
+        wxStaticText* creditsText =
+            new wxStaticText(this, wxID_ANY,
+                             _("Credits:\n- Developer: EinTim\n- Inspiration: Alexandra Göttlicher\n- Icons from: "
+                               "heroicons.com\n- Open source "
+                               "projects used in this:\n   wxWidgets, libcurl, libdbus, mbedtls, nlohmann-json."));
+        creditsText->Wrap(300);
+        mainSizer->Add(creditsText, 0, wxALL | wxALIGN_CENTER, 10);
+
+        wxHyperlinkCtrl* link = new wxHyperlinkCtrl(this, wxID_ANY, _("Visit my website"), _("https://eintim.dev"));
+        mainSizer->Add(link, 0, wxALL | wxALIGN_CENTER, 10);
+
+        wxButton* okButton = new wxButton(this, wxID_OK, _("OK"));
+        mainSizer->Add(okButton, 0, wxALL | wxALIGN_CENTER, 10);
+
+        this->SetSizerAndFit(mainSizer);
+        this->CentreOnScreen();
+    }
+};
+
 class PlayerLinkIcon : public wxTaskBarIcon {
 public:
-    PlayerLinkIcon(wxFrame* s) : settingsFrame(s) {}
+    PlayerLinkIcon(wxFrame* s) : settingsFrame(s), aboutDlg(nullptr) {}
 
     void OnMenuOpen(wxCommandEvent& evt) {
         settingsFrame->Show(true);
@@ -165,13 +200,14 @@ public:
     void OnMenuExit(wxCommandEvent& evt) { settingsFrame->Close(true); }
 
     void OnMenuAbout(wxCommandEvent& evt) {
-        wxMessageBox(_("Made with <3 by EinTim"), _("PlayerLink"), wxOK | wxICON_INFORMATION);
+        aboutDlg.Show(true);
+        aboutDlg.Raise();
     }
 
 protected:
     virtual wxMenu* CreatePopupMenu() override {
         wxMenu* menu = new wxMenu;
-        menu->Append(10004, currentSongTitle == "" ? _("Not Playing") : wxString::FromUTF8(currentSongTitle));
+        menu->Append(10004, currentSongTitle == "" ? _("Not Playing") : currentSongTitle);
         menu->Enable(10004, false);
         menu->AppendSeparator();
         menu->Append(10005, _("Copy Odesli URL"));
@@ -190,6 +226,7 @@ protected:
 
 private:
     wxFrame* settingsFrame;
+    AboutDialog aboutDlg;
 };
 
 class wxTextCtrlWithPlaceholder : public wxTextCtrl {
@@ -258,31 +295,49 @@ public:
         this->SetIcon(icon);
 
         auto mainContainer = new wxBoxSizer(wxVERTICAL);
+        wxPanel* panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
+        panel->SetSizer(mainContainer);
         // header start
-        auto settingsText = new wxStaticText(this, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
+        auto settingsText = new wxStaticText(panel, wxID_ANY, _("Settings"), wxDefaultPosition, wxDefaultSize, 0);
         settingsText->Wrap(-1);
         mainContainer->Add(settingsText, 0, wxALIGN_CENTER | wxALL, 5);
         // header end
 
         // enabled apps start
-        auto settingsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        auto settingsDivider = new wxStaticLine(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
         mainContainer->Add(settingsDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* enabledAppsContainer;
         enabledAppsContainer = new wxBoxSizer(wxHORIZONTAL);
 
         auto enabledAppsText =
-            new wxStaticText(this, wxID_ANY, _("Enabled Apps:"), wxDefaultPosition, wxDefaultSize, 0);
+            new wxStaticText(panel, wxID_ANY, _("Enabled Apps:"), wxDefaultPosition, wxDefaultSize, 0);
         enabledAppsText->Wrap(-1);
         enabledAppsContainer->Add(enabledAppsText, 0, wxALL, 5);
 
-        wxBoxSizer* appCheckboxContainer;
-        appCheckboxContainer = new wxBoxSizer(wxVERTICAL);
+        const auto edit_button_texture = utils::loadSettingsIcon(pencil_svg, pencil_svg_size);
+        const auto delete_button_texture = utils::loadSettingsIcon(trash_svg, trash_svg_size);
+        const auto add_button_texture = utils::loadSettingsIcon(plus_svg, plus_svg_size);
 
+        wxBoxSizer* appCheckboxContainer = new wxBoxSizer(wxVERTICAL);
+
+        wxBoxSizer* rowSizer = new wxBoxSizer(wxHORIZONTAL);
+
+        wxBitmapButton* addButton = new wxBitmapButton(panel, wxID_ANY, add_button_texture);
+        addButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) {
+
+        });
+        rowSizer->Add(addButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+
+        wxBoxSizer* vSizer = new wxBoxSizer(wxVERTICAL);
+        vSizer->Add(rowSizer, 0, wxALL, 5);
+        enabledAppsContainer->Add(vSizer, 0, wxEXPAND);
         auto settings = utils::getSettings();
 
         for (auto app : settings.apps) {
-            auto checkbox = new wxCheckBox(this, wxID_ANY, app.appName, wxDefaultPosition, wxDefaultSize, 0);
+            wxBoxSizer* checkboxRowSizer = new wxBoxSizer(wxHORIZONTAL);
+
+            auto checkbox = new wxCheckBox(panel, wxID_ANY, app.appName, wxDefaultPosition, wxDefaultSize, 0);
             checkbox->SetValue(app.enabled);
             checkbox->SetClientData(new utils::App(app));
             checkbox->Bind(wxEVT_CHECKBOX, [checkbox](wxCommandEvent& event) {
@@ -294,10 +349,35 @@ public:
             checkbox->Bind(wxEVT_DESTROY, [checkbox](wxWindowDestroyEvent&) {
                 delete static_cast<utils::App*>(checkbox->GetClientData());
             });
-            appCheckboxContainer->Add(checkbox, 0, wxALL, 5);
+
+            wxBitmapButton* editButton = new wxBitmapButton(panel, wxID_ANY, edit_button_texture);
+            editButton->Bind(wxEVT_BUTTON, [checkbox](wxCommandEvent& event) {
+
+            });
+
+            wxBitmapButton* deleteButton = new wxBitmapButton(panel, wxID_ANY, delete_button_texture);
+            deleteButton->Bind(wxEVT_BUTTON, [this, checkbox, editButton, deleteButton, checkboxRowSizer,
+                                              appCheckboxContainer](wxCommandEvent& event) {
+                utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
+                auto settings = utils::getSettings();
+                settings.apps.erase(std::find(settings.apps.begin(), settings.apps.end(), *appData));
+                utils::saveSettings(settings);
+                appCheckboxContainer->Detach(checkboxRowSizer);
+
+                this->CallAfter([this, checkboxRowSizer]() {
+                    checkboxRowSizer->Clear(true);
+                    this->Layout();
+                });
+            });
+
+            checkboxRowSizer->Add(checkbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
+            checkboxRowSizer->Add(editButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+            checkboxRowSizer->Add(deleteButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+
+            appCheckboxContainer->Add(checkboxRowSizer, 0, wxALL, 5);
         }
 
-        auto anyOtherCheckbox = new wxCheckBox(this, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
+        auto anyOtherCheckbox = new wxCheckBox(panel, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
         anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
         anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
             bool isChecked = event.IsChecked();
@@ -308,26 +388,26 @@ public:
 
         appCheckboxContainer->Add(anyOtherCheckbox, 0, wxALL, 5);
 
-        enabledAppsContainer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
+        vSizer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
 
         mainContainer->Add(enabledAppsContainer, 0, 0, 5);
         // enabled apps end
 
         // LastFM start
-        auto lastfmDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        auto lastfmDivider = new wxStaticLine(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
         mainContainer->Add(lastfmDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* lastFMContainer;
         lastFMContainer = new wxBoxSizer(wxHORIZONTAL);
 
-        auto lastfmText = new wxStaticText(this, wxID_ANY, _("LastFM:"), wxDefaultPosition, wxDefaultSize, 0);
+        auto lastfmText = new wxStaticText(panel, wxID_ANY, _("LastFM:"), wxDefaultPosition, wxDefaultSize, 0);
         lastfmText->Wrap(-1);
         lastFMContainer->Add(lastfmText, 0, wxALL, 5);
 
         wxBoxSizer* lastfmSettingsContainer;
         lastfmSettingsContainer = new wxBoxSizer(wxVERTICAL);
 
-        auto lastfmEnabledCheckbox = new wxCheckBox(this, wxID_ANY, _("Enabled"), wxDefaultPosition, wxDefaultSize, 0);
+        auto lastfmEnabledCheckbox = new wxCheckBox(panel, wxID_ANY, _("Enabled"), wxDefaultPosition, wxDefaultSize, 0);
         lastfmEnabledCheckbox->SetValue(settings.lastfm.enabled);
         lastfmEnabledCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
             bool isChecked = event.IsChecked();
@@ -339,7 +419,7 @@ public:
         lastFMContainer->Add(lastfmSettingsContainer, 1, wxEXPAND, 5);
 
         auto usernameInput =
-            new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+            new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
         usernameInput->SetPlaceholderText(_("Username"));
         usernameInput->SetValue(settings.lastfm.username);
         usernameInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
@@ -348,7 +428,7 @@ public:
             settings.lastfm.username = data;
             utils::saveSettings(settings);
         });
-        auto passwordInput = new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+        auto passwordInput = new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                                            wxDefaultSize, wxTE_PASSWORD);
         passwordInput->SetPlaceholderText(_("Password"));
         passwordInput->SetValue(settings.lastfm.password);
@@ -359,7 +439,7 @@ public:
             utils::saveSettings(settings);
         });
         auto apikeyInput =
-            new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
+            new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0);
         apikeyInput->SetPlaceholderText(_("API-Key"));
         apikeyInput->SetValue(settings.lastfm.api_key);
         apikeyInput->Bind(wxEVT_TEXT, [this](wxCommandEvent& event) {
@@ -368,7 +448,7 @@ public:
             settings.lastfm.api_key = data;
             utils::saveSettings(settings);
         });
-        auto apisecretInput = new wxTextCtrlWithPlaceholder(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+        auto apisecretInput = new wxTextCtrlWithPlaceholder(panel, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                                             wxDefaultSize, wxTE_PASSWORD);
         apisecretInput->SetPlaceholderText(_("API-Secret"));
         apisecretInput->SetValue(settings.lastfm.api_secret);
@@ -379,7 +459,7 @@ public:
             utils::saveSettings(settings);
         });
 
-        auto checkButton = new wxButton(this, wxID_ANY, _("Check credentials"));
+        auto checkButton = new wxButton(panel, wxID_ANY, _("Check credentials"));
         checkButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent& event) { initLastFM(true); });
         mainContainer->Add(lastFMContainer, 0, 0, 5);
 
@@ -392,7 +472,7 @@ public:
         // Last FM End
 
         // settings start
-        auto appsDivider = new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
+        auto appsDivider = new wxStaticLine(panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
         mainContainer->Add(appsDivider, 0, wxEXPAND | wxALL, 5);
 
         wxBoxSizer* settingsContainer;
@@ -401,12 +481,12 @@ public:
         wxBoxSizer* startupContainer;
         startupContainer = new wxBoxSizer(wxHORIZONTAL);
 
-        auto startupText = new wxStaticText(this, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
+        auto startupText = new wxStaticText(panel, wxID_ANY, _("Startup:"), wxDefaultPosition, wxDefaultSize, 0);
         startupText->Wrap(-1);
         startupContainer->Add(startupText, 0, wxALL, 5);
 
         auto autostartCheckbox =
-            new wxCheckBox(this, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
+            new wxCheckBox(panel, wxID_ANY, _("Launch at login"), wxDefaultPosition, wxDefaultSize, 0);
         autostartCheckbox->SetValue(settings.autoStart);
         autostartCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
             bool isChecked = event.IsChecked();
@@ -417,7 +497,7 @@ public:
         });
 
         auto odesliCheckbox =
-            new wxCheckBox(this, wxID_ANY, _("Odesli integration"), wxDefaultPosition, wxDefaultSize, 0);
+            new wxCheckBox(panel, wxID_ANY, _("Odesli integration"), wxDefaultPosition, wxDefaultSize, 0);
         odesliCheckbox->SetValue(settings.odesli);
         odesliCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
             bool isChecked = event.IsChecked();
@@ -430,17 +510,20 @@ public:
         settingsContainer->Add(odesliCheckbox, 0, wxALL, 5);
         startupContainer->Add(settingsContainer);
         mainContainer->Add(startupContainer, 0, wxEXPAND, 5);
-
         // settings end
-        this->SetSizerAndFit(mainContainer);
 
+        wxBoxSizer* frameSizer = new wxBoxSizer(wxVERTICAL);
+        frameSizer->Add(panel, 1, wxEXPAND);
+        this->SetSizerAndFit(frameSizer);
         wxSize currentSize = this->GetSize();
         this->SetSize(size.GetWidth(), currentSize.GetHeight());
         this->Layout();
 
         this->Centre(wxBOTH);
+        panel->SetFocus();
     }
 };
+
 class PlayerLink : public wxApp {
 public:
     virtual bool OnInit() override {
