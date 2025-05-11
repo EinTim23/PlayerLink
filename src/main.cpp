@@ -274,7 +274,7 @@ public:
             listBox->Append(lastMediaSource);
             app->processNames.push_back(lastMediaSource);
         }
-        
+
         processBox->Add(listBox, 1, wxALL | wxEXPAND, 5);
 
         // Add input + buttons
@@ -285,8 +285,10 @@ public:
         const auto delete_button_texture = utils::loadSettingsIcon(trash_svg, trash_svg_size);
         const auto add_button_texture = utils::loadSettingsIcon(plus_svg, plus_svg_size);
         wxBitmapButton* addButton = new wxBitmapButton(this, wxID_ANY, add_button_texture);
+        addButton->SetToolTip(_("Add process to list"));
         wxBitmapButton* removeButton = new wxBitmapButton(this, wxID_ANY, delete_button_texture);
-
+        removeButton->SetToolTip(_("Remove process from list"));
+        
         addSizer->Add(processNameInput, 1, wxALL | wxEXPAND, 5);
         addSizer->Add(addButton, 0, wxALL, 5);
         addSizer->Add(removeButton, 0, wxALL, 5);
@@ -413,9 +415,28 @@ public:
 
         wxBoxSizer* appCheckboxContainer = new wxBoxSizer(wxVERTICAL);
 
-        wxBoxSizer* rowSizer = new wxBoxSizer(wxHORIZONTAL);
+        wxBoxSizer* vSizer = new wxBoxSizer(wxVERTICAL);
+        enabledAppsContainer->Add(vSizer, 0, wxEXPAND);
+        auto settings = utils::getSettings();
+
+        for (const auto& app : settings.apps) {
+            addCheckboxToContainer(panel, appCheckboxContainer, frameSizer, size, delete_button_texture,
+                                   edit_button_texture, app);
+        }
+
+        wxBoxSizer* checkboxRowSizer = new wxBoxSizer(wxHORIZONTAL);
+        auto anyOtherCheckbox = new wxCheckBox(panel, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
+        anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
+        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
+            bool isChecked = event.IsChecked();
+            auto settings = utils::getSettings();
+            settings.anyOtherEnabled = isChecked;
+            utils::saveSettings(settings);
+        });
+        
 
         wxBitmapButton* addButton = new wxBitmapButton(panel, wxID_ANY, add_button_texture);
+        addButton->SetToolTip(_("Add application"));
         addButton->Bind(wxEVT_BUTTON, [this, panel, frameSizer, size, delete_button_texture, edit_button_texture,
                                        appCheckboxContainer](wxCommandEvent& event) {
             utils::App* app = new utils::App();
@@ -433,29 +454,13 @@ public:
             } else
                 delete app;
         });
-        rowSizer->Add(addButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+        
 
-        wxBoxSizer* vSizer = new wxBoxSizer(wxVERTICAL);
-        vSizer->Add(rowSizer, 0, wxALL, 5);
-        enabledAppsContainer->Add(vSizer, 0, wxEXPAND);
-        auto settings = utils::getSettings();
-
-        for (const auto& app : settings.apps) {
-            addCheckboxToContainer(panel, appCheckboxContainer, frameSizer, size, delete_button_texture,
-                                   edit_button_texture, app);
-        }
-
-        auto anyOtherCheckbox = new wxCheckBox(panel, wxID_ANY, _("Any other"), wxDefaultPosition, wxDefaultSize, 0);
-        anyOtherCheckbox->SetValue(settings.anyOtherEnabled);
-        anyOtherCheckbox->Bind(wxEVT_CHECKBOX, [](wxCommandEvent& event) {
-            bool isChecked = event.IsChecked();
-            auto settings = utils::getSettings();
-            settings.anyOtherEnabled = isChecked;
-            utils::saveSettings(settings);
-        });
+        checkboxRowSizer->Add(anyOtherCheckbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
+        checkboxRowSizer->Add(addButton, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
 
         vSizer->Add(appCheckboxContainer, 1, wxEXPAND, 5);
-        vSizer->Add(anyOtherCheckbox, 1, wxALL, 5);
+        vSizer->Add(checkboxRowSizer, 1, wxALL, 5);
 
         mainContainer->Add(enabledAppsContainer, 0, 0, 5);
         // enabled apps end
@@ -605,6 +610,7 @@ private:
         });
 
         wxBitmapButton* editButton = new wxBitmapButton(panel, wxID_ANY, edit_button_texture);
+        editButton->SetToolTip(_("Edit application"));
         editButton->Bind(wxEVT_BUTTON, [this, checkbox](wxCommandEvent& event) {
             utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
             utils::App backupApp = *appData;
@@ -622,6 +628,7 @@ private:
         });
 
         wxBitmapButton* deleteButton = new wxBitmapButton(panel, wxID_ANY, delete_button_texture);
+        deleteButton->SetToolTip(_("Delete application"));
         deleteButton->Bind(wxEVT_BUTTON,
                            [this, checkboxRowSizer, container, frameSizer, checkbox, size](wxCommandEvent& event) {
                                utils::App* appData = static_cast<utils::App*>(checkbox->GetClientData());
@@ -640,8 +647,8 @@ private:
                            });
 
         checkboxRowSizer->Add(checkbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
-        checkboxRowSizer->Add(editButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
-        checkboxRowSizer->Add(deleteButton, 0, wxALL | wxALIGN_CENTER_VERTICAL);
+        checkboxRowSizer->Add(editButton, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
+        checkboxRowSizer->Add(deleteButton, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
 
         container->Add(checkboxRowSizer, 0, wxALL, 5);
     }
