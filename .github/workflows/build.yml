@@ -46,7 +46,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build the project
-      run: cmake --build build --config Release --parallel $(nproc)
+      run: cmake --build build --config Release --target PlayerLink --parallel $(nproc)
 
     - name: Download linuxdeploy
       run: |
@@ -85,7 +85,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build the project
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release --target PlayerLink
 
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
@@ -112,7 +112,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -A ARM64
 
     - name: Build the project for ARM64
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release --target PlayerLink
 
     - name: Rename ARM64 executable
       run: Rename-Item build\Release\PlayerLink.exe PlayerLink-arm64.exe
@@ -142,7 +142,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build the project
-      run: cmake --build build --config Release --parallel $(sysctl -n hw.physicalcpu)
+      run: cmake --build build --config Release --target PlayerLink --parallel $(sysctl -n hw.physicalcpu)
 
     - name: Create DMG package
       run: |
