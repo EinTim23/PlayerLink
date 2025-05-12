@@ -66,6 +66,63 @@ jobs:
         name: PlayerLink-AppImage  
         path: ./*.AppImage    
 
+  build-linux-arm64:
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive  
+        fetch-depth: 0 
+
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.22.0' 
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libssl-dev \
+          libx11-dev \
+          libxext-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          zlib1g-dev \
+          libglu1-mesa-dev \
+          libgtk-3-dev \
+          libwayland-dev \
+          fuse
+        sudo modprobe fuse
+
+    - name: Configure with CMake
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build the project
+      run: cmake --build build --config Release --target PlayerLink --parallel $(nproc)
+
+    - name: Download linuxdeploy
+      run: |
+        wget "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage"
+        wget "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+        chmod +x linuxdeploy-aarch64.AppImage linuxdeploy-plugin-gtk.sh
+        sudo mv linuxdeploy-aarch64.AppImage /usr/local/bin/linuxdeploy
+
+    - name: Create AppImage
+      run: |
+        cp -r build/PlayerLink linux/AppDir/usr/bin/  
+        linuxdeploy --appdir=linux/AppDir --plugin gtk --output appimage
+
+    - name: Upload AppImage artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PlayerLink-AppImage-ARM64  
+        path: ./*.AppImage    
+
   build-windows:
     runs-on: windows-latest
 
@@ -163,7 +220,7 @@ jobs:
 
   create-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build-linux, build-windows, build-windows-arm64, build-macos]
+    needs: [build-linux, build-linux-arm64, build-windows, build-windows-arm64, build-macos]
     runs-on: ubuntu-latest
     steps:
     - name: Download artifacts
@@ -183,6 +240,7 @@ jobs:
         release_name: Release ${{ github.ref_name }}
         draft: false
         prerelease: false
+
     - name: Upload AppImage
       uses: actions/upload-release-asset@v1
       env:
@@ -191,6 +249,16 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./release-assets/PlayerLink-x86_64.AppImage
         asset_name: PlayerLink-x86_64.AppImage
+        asset_content_type: application/octet-stream
+
+    - name: Upload ARM64 AppImage
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-assets/PlayerLink-aarch64.AppImage
+        asset_name: PlayerLink-aarch64.AppImage
         asset_content_type: application/octet-stream
 
     - name: Upload Windows Executable
