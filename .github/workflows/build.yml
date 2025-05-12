@@ -46,7 +46,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build the project
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release --parallel $(nproc)
 
     - name: Download linuxdeploy
       run: |
@@ -90,7 +90,37 @@ jobs:
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
-        name: PlayerLink-Windows-Executable
+        name: PlayerLink-Windows-AMD64
+        path: build/Release/*
+
+  build-windows-arm64:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Set up CMake
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: '3.22.0'
+
+    - name: Configure with CMake for ARM64
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -A ARM64
+
+    - name: Build the project for ARM64
+      run: cmake --build build --config Release
+
+    - name: Rename ARM64 executable
+      run: Rename-Item build\Release\PlayerLink.exe PlayerLink-arm64.exe
+
+    - name: Upload Windows ARM64 artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PlayerLink-Windows-ARM64
         path: build/Release/*
 
   build-macos:
@@ -112,7 +142,7 @@ jobs:
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
     - name: Build the project
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release --parallel $(sysctl -n hw.physicalcpu)
 
     - name: Create DMG package
       run: |
@@ -166,6 +196,16 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./release-assets/PlayerLink.exe
         asset_name: PlayerLink.exe
+        asset_content_type: application/octet-stream
+
+    - name: Upload Windows ARM64 Executable
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release-assets/PlayerLink-arm64.exe
+        asset_name: PlayerLink-arm64.exe
         asset_content_type: application/octet-stream
 
     - name: Upload macOS DMG
