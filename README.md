@@ -80,9 +80,9 @@ An example on how to add custom apps to the config can be found [here](./setting
 4. Build the project :)
     ```bash
     # for a release build
-    cmake --build build --config Release
+    cmake --build build --config Release --target PlayerLink
     # for a debug build
-    cmake --build build
+    cmake --build build --target PlayerLink
     ```
 
 ## Contributing
