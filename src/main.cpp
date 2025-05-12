@@ -154,11 +154,17 @@ void handleMediaTasks() {
     }
 }
 
+void SetWindowIcon(wxTopLevelWindow* win) {
+    const wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
+    win->SetIcon(icon);
+}
+
 class AboutDialog : public wxDialog {
 public:
     AboutDialog(wxWindow* parent)
         : wxDialog(parent, wxID_ANY, _("About PlayerLink"), wxDefaultPosition, wxDefaultSize,
                    wxDEFAULT_DIALOG_STYLE & ~wxRESIZE_BORDER) {
+        SetWindowIcon(this);
         wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
         wxStaticText* label = new wxStaticText(this, wxID_ANY, _("Made with <3 by EinTim"));
         label->Wrap(300);
@@ -192,6 +198,7 @@ public:
     EditAppDialog(wxWindow* parent, const wxString title, utils::App* app)
         : wxDialog(parent, wxID_ANY, title, wxDefaultPosition, wxDefaultSize,
                    wxDEFAULT_DIALOG_STYLE & ~wxRESIZE_BORDER) {
+        SetWindowIcon(this);
         Bind(wxEVT_CLOSE_WINDOW, &EditAppDialog::OnClose, this);
 
         wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -378,12 +385,12 @@ private:
 
 class PlayerLinkFrame : public wxFrame {
 public:
-    PlayerLinkFrame(wxWindow* parent, wxIcon& icon, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
+    PlayerLinkFrame(wxWindow* parent, wxWindowID id = wxID_ANY, const wxString& title = wxEmptyString,
                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize(300, 200),
                     long style = wxDEFAULT_FRAME_STYLE & ~wxRESIZE_BORDER & ~wxMAXIMIZE_BOX)
         : wxFrame(parent, id, title, pos, size, style) {
         this->SetSizeHints(wxDefaultSize, wxDefaultSize);
-        this->SetIcon(icon);
+        SetWindowIcon(this);
 
         auto mainContainer = new wxBoxSizer(wxVERTICAL);
         wxPanel* panel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL);
@@ -666,9 +673,8 @@ public:
             this->SetAppearance(wxAppBase::Appearance::Dark);
 
         wxInitAllImageHandlers();
-        wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
         wxIcon tray_icon = utils::loadIconFromMemory(menubar_icon_png, menubar_icon_png_size);
-        PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, icon, wxID_ANY, _("PlayerLink"));
+        PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, wxID_ANY, _("PlayerLink"));
         trayIcon = new PlayerLinkIcon(frame);
         frame->Bind(wxEVT_CLOSE_WINDOW, [=](wxCloseEvent& event) {
             if (event.CanVeto()) {
