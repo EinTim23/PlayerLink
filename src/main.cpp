@@ -171,7 +171,7 @@ public:
         wxStaticText* creditsText =
             new wxStaticText(this, wxID_ANY,
                              _("Credits:\n- Developer: EinTim\n- Inspiration: Alexandra Göttlicher\n- Icons from: "
-                               "heroicons.com\n- Open source "
+                               "heroicons.com\n- App Icon from: localcc\n- Open source "
                                "projects used in this:\n   wxWidgets, libcurl, libdbus, mbedtls, nlohmann-json."));
         creditsText->Wrap(300);
         mainSizer->Add(creditsText, 0, wxALL | wxALIGN_CENTER, 10);
@@ -667,6 +667,7 @@ public:
 
         wxInitAllImageHandlers();
         wxIcon icon = utils::loadIconFromMemory(icon_png, icon_png_size);
+        wxIcon tray_icon = utils::loadIconFromMemory(menubar_icon_png, menubar_icon_png_size);
         PlayerLinkFrame* frame = new PlayerLinkFrame(nullptr, icon, wxID_ANY, _("PlayerLink"));
         trayIcon = new PlayerLinkIcon(frame);
         frame->Bind(wxEVT_CLOSE_WINDOW, [=](wxCloseEvent& event) {
@@ -677,7 +678,7 @@ public:
                 std::exit(0);
         });
 
-        trayIcon->SetIcon(icon, _("PlayerLink"));
+        trayIcon->SetIcon(tray_icon, _("PlayerLink"));
         return true;
     }
 
