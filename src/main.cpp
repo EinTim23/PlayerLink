@@ -7,6 +7,7 @@
 #include <wx/wx.h>
 
 #include <chrono>
+#include <cstddef>
 #include <thread>
 
 #include "backend.hpp"
@@ -50,17 +51,22 @@ void initLastFM(bool checkMode = false) {
     lastfm = new LastFM(settings.lastfm.username, settings.lastfm.password, settings.lastfm.api_key,
                         settings.lastfm.api_secret);
     LastFM::LASTFM_STATUS status = lastfm->authenticate();
-    if (status && checkMode)
-        wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
-    else if (checkMode)
+    if (status) {
+        delete lastfm;
+        lastfm = nullptr;
+        if (checkMode)
+            wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
+    } else if (checkMode)
         wxMessageBox(_("The LastFM authentication was successful."), _("PlayerLink"), wxOK | wxICON_INFORMATION);
 }
 
 void handleMediaTasks() {
-    initLastFM();
     int64_t lastMs = 0;
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (!lastfm)
+            initLastFM();
+
         auto mediaInformation = backend::getMediaInformation();
         auto settings = utils::getSettings();
         if (!mediaInformation) {
@@ -295,7 +301,7 @@ public:
         addButton->SetToolTip(_("Add process to list"));
         wxBitmapButton* removeButton = new wxBitmapButton(this, wxID_ANY, delete_button_texture);
         removeButton->SetToolTip(_("Remove process from list"));
-        
+
         addSizer->Add(processNameInput, 1, wxALL | wxEXPAND, 5);
         addSizer->Add(addButton, 0, wxALL, 5);
         addSizer->Add(removeButton, 0, wxALL, 5);
@@ -440,7 +446,6 @@ public:
             settings.anyOtherEnabled = isChecked;
             utils::saveSettings(settings);
         });
-        
 
         wxBitmapButton* addButton = new wxBitmapButton(panel, wxID_ANY, add_button_texture);
         addButton->SetToolTip(_("Add application"));
@@ -461,7 +466,6 @@ public:
             } else
                 delete app;
         });
-        
 
         checkboxRowSizer->Add(anyOtherCheckbox, 1, wxALL | wxALIGN_CENTER_VERTICAL);
         checkboxRowSizer->Add(addButton, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
