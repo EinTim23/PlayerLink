@@ -93,14 +93,6 @@ void handleMediaTasks() {
         if (shouldContinue)
             continue;
 
-        if (lastPlayingSong.find(mediaInformation->songTitle + mediaInformation->songArtist +
-                                 mediaInformation->songAlbum) == std::string::npos &&
-            lastfm)
-            lastfm->scrobble(mediaInformation->songArtist, mediaInformation->songTitle);
-
-        lastPlayingSong = currentlyPlayingSong;
-        currentSongTitle = mediaInformation->songArtist + " - " + mediaInformation->songTitle;
-
         std::string currentMediaSource = mediaInformation->playbackSource;
 
         if (currentMediaSource != lastMediaSource) {
@@ -109,6 +101,14 @@ void handleMediaTasks() {
         }  // reinitialize with new client id
 
         auto app = utils::getApp(lastMediaSource);
+
+        if (lastPlayingSong.find(mediaInformation->songTitle + mediaInformation->songArtist +
+                                 mediaInformation->songAlbum) == std::string::npos &&
+            lastfm && app.enabled)
+            lastfm->scrobble(mediaInformation->songArtist, mediaInformation->songTitle);
+
+        lastPlayingSong = currentlyPlayingSong;
+        currentSongTitle = mediaInformation->songArtist + " - " + mediaInformation->songTitle;
 
         if (!app.enabled) {
             Discord_ClearPresence();
