@@ -50,7 +50,7 @@ void initLastFM(bool checkMode = false) {
     lastfm = new LastFM(settings.lastfm.username, settings.lastfm.password, settings.lastfm.api_key,
                         settings.lastfm.api_secret);
     LastFM::LASTFM_STATUS status = lastfm->authenticate();
-    if (status)
+    if (status && checkMode)
         wxMessageBox(_("Error authenticating at LastFM!"), _("PlayerLink"), wxOK | wxICON_ERROR);
     else if (checkMode)
         wxMessageBox(_("The LastFM authentication was successful."), _("PlayerLink"), wxOK | wxICON_INFORMATION);

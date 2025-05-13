@@ -44,13 +44,17 @@ public:
         parameters["api_sig"] = getApiSignature(parameters);
         std::string postBody = utils::getURLEncodedPostBody(parameters);
         std::string response = utils::httpRequest(api_base, "POST", postBody);
-        auto j = nlohmann::json::parse(response);
-        if (j.contains("error"))
-            return j["error"].get<LASTFM_STATUS>();
+        try {
+            auto j = nlohmann::json::parse(response);
+            if (j.contains("error"))
+                return j["error"].get<LASTFM_STATUS>();
 
-        session_token = j["session"]["key"].get<std::string>();
-        authenticated = true;
-        return LASTFM_STATUS::SUCCESS;
+            session_token = j["session"]["key"].get<std::string>();
+            authenticated = true;
+            return LASTFM_STATUS::SUCCESS;
+        } catch (...) {
+            return LASTFM_STATUS::UNKNOWN_ERROR;
+        }
     }
 
     LASTFM_STATUS scrobble(std::string artist, std::string track) {
