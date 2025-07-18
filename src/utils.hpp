@@ -21,6 +21,7 @@ namespace utils {
     struct App {
         bool enabled;
         int type;
+        int displayType;
         std::string appName;
         std::string clientId;
         std::string searchEndpoint;
@@ -271,6 +272,7 @@ namespace utils {
             appJson["search_endpoint"] = app.searchEndpoint;
             appJson["enabled"] = app.enabled;
             appJson["type"] = app.type;
+            appJson["display_type"] = app.displayType;
             for (const auto& processName : app.processNames) appJson["process_names"].push_back(processName);
 
             j["apps"].push_back(appJson);
@@ -316,6 +318,7 @@ namespace utils {
                 a.searchEndpoint = app.value("search_endpoint", "");
                 a.enabled = app.value("enabled", false);
                 a.type = app.value("type", 2);
+                a.displayType = app.value("display_type", 0);
 
                 for (const auto& process : app.value("process_names", nlohmann::json())) a.processNames.push_back(process.get<std::string>());
 
@@ -339,6 +342,7 @@ namespace utils {
         a.appName = DEFAULT_APP_NAME;
         a.enabled = settings.anyOtherEnabled;
         a.type = 2;  // Default to listening
+        a.displayType = 0;
         a.searchEndpoint = "";
         return a;
     }

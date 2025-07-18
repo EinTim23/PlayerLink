@@ -116,9 +116,10 @@ void handleMediaTasks() {
         }
         std::string serviceName = app.appName;
 
-        std::string activityState = "by " + mediaInformation->songArtist;
+        std::string activityState = mediaInformation->songArtist;
         DiscordRichPresence activity{};
         activity.type = app.type;
+        activity.displayType = app.displayType;
         activity.details = mediaInformation->songTitle.c_str();
         activity.state = activityState.c_str();
         activity.smallImageText = serviceName.c_str();
@@ -271,6 +272,37 @@ public:
         });
 
         formSizer->Add(activityChoice, 1, wxALL | wxEXPAND, 5);
+
+
+        formSizer->Add(new wxStaticText(this, wxID_ANY, "Display Type:"), 0, wxALL | wxALIGN_CENTER_VERTICAL, 5);
+        wxString displayChoices[] = {_("App"), _("State/Artist"), _("Details/Title")};
+        wxChoice* displayTypeChoice = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, 3, displayChoices);
+
+        switch (app->displayType) {
+        case StatusDisplayType::DETAILS:
+            displayTypeChoice->SetSelection(2);
+            break;
+        case StatusDisplayType::APPNAME:
+            displayTypeChoice->SetSelection(0);
+            break;
+        case StatusDisplayType::STATE:
+            displayTypeChoice->SetSelection(1);
+            break;
+        default:
+            displayTypeChoice->SetSelection(0);
+        }
+
+        displayTypeChoice->Bind(wxEVT_CHOICE, [displayTypeChoice, app](wxCommandEvent& event) {
+            const std::map<wxString, StatusDisplayType> typeMap = {
+                {_("App"), StatusDisplayType::APPNAME},
+                {_("State/Artist"), StatusDisplayType::STATE},
+                {_("Details/Title"), StatusDisplayType::DETAILS},
+            };
+            app->displayType = typeMap.at(event.GetString());
+        });
+
+        formSizer->Add(displayTypeChoice, 1, wxALL | wxEXPAND, 5);
+
         mainSizer->Add(formSizer, 0, wxEXPAND);
 
         // Process names group
