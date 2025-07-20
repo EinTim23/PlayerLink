@@ -24,20 +24,18 @@ LastFM* lastfm = nullptr;
 
 void handleRPCTasks() {
     while (true) {
-        while (true) {
-            DiscordEventHandlers discordHandler{};
+        while (!Discord_IsConnected()) {
+            DiscordEventHandlers handlers{};
             auto app = utils::getApp(lastMediaSource);
-            Discord_Initialize(app.clientId.c_str(), &discordHandler);
-            if (Discord_IsConnected())
-                break;
+            Discord_Initialize(app.clientId.c_str(), &handlers);
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
-        while (true) {
+
+        while (Discord_IsConnected()) {
             Discord_RunCallbacks();
-            if (!Discord_IsConnected())
-                break;
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
+
         Discord_Shutdown();
     }
 }
