@@ -23,29 +23,47 @@ NSString *getFilePathFromBundle(NSString *fileName, NSString *fileType) {
     return filePath;
 }
 
-NSString *executeCommand(NSString *command, NSArray *arguments) {
-    NSTask *task = [[NSTask alloc] init];
-    task.launchPath = command;
-    task.arguments = arguments;
+std::string executeCommand(const std::string &command, const std::vector<std::string> &arguments) {
+    int pipefd[2];
+    pipe(pipefd);
 
-    NSPipe *pipe = [NSPipe pipe];
-    task.standardOutput = pipe;
-    task.standardError = [NSPipe pipe];
-    [task launch];
+    pid_t pid = fork();
+    if (pid == 0) {
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
 
-    NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
-    NSString *output = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    [task waitUntilExit];
+        std::vector<char *> argv;
+        argv.push_back(const_cast<char *>(command.c_str()));
+        for (const auto &arg : arguments) argv.push_back(const_cast<char *>(arg.c_str()));
+        argv.push_back(nullptr);
+
+        execv(command.c_str(), argv.data());
+        _exit(1);
+    }
+
+    close(pipefd[1]);
+
+    std::string output;
+    char buffer[4096];
+    ssize_t count;
+    while ((count = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+        output.append(buffer, count);
+    }
+
+    close(pipefd[0]);
+    waitpid(pid, nullptr, 0);
 
     return output;
 }
 
 std::shared_ptr<MediaInfo> backend::getMediaInformation() {
-    // apple decided to prevent apps not signed by them to use media remote, so we use an apple script instead. But that script only works on Sonoma or newer and the other one is arguably better, so keep the old method as well
+    // apple decided to prevent apps not signed by them to use media remote, so we use an apple script instead. But that
+    // script only works on Sonoma or newer and the other one is arguably better, so keep the old method as well
     if (@available(macOS 15.0, *)) {
         static NSString *script = getFilePathFromBundle(@"MediaRemote", @"js");
-        NSString *output = executeCommand(@"/usr/bin/osascript", @[ @"-l", @"JavaScript", script ]);
-        nlohmann::json j = nlohmann::json::parse([output UTF8String]);
+        std::string output = executeCommand("/usr/bin/osascript", {"-l", "JavaScript", script.UTF8String});
+        nlohmann::json j = nlohmann::json::parse(output);
 
         std::string appName = j["player"].get<std::string>();
         if (appName == "none")
